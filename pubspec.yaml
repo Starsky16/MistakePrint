@@ -1,0 +1,41 @@
+name: mistake_print
+description: "把含 LaTeX 的错题题干渲染成热敏打印机 1-bit 位图的 Android 应用。"
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 公式排版（自带 KaTeX 全套字体，离线可用）。已 16 个月未发版，锁定精确版本。
+  flutter_math_fork: 0.7.4
+  # 二值化后处理 + 1-bit PNG 编码。
+  image: 4.9.1
+  # 系统分享面板。
+  share_plus: 13.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # OFL 字体与其许可证一起打包，满足 OFL-1.1 的分发要求。
+  assets:
+    - assets/fonts/NotoSansSC-OFL.txt
+    - assets/fonts/STIXTwoMath-OFL.txt
+
+  fonts:
+    - family: NotoSansSC
+      fonts:
+        - asset: assets/fonts/NotoSansSC-VariableFont_wght.ttf
+    - family: STIXTwoMath
+      fonts:
+        - asset: assets/fonts/STIXTwoMath-Regular.ttf
