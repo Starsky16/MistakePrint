@@ -72,7 +72,36 @@ class RenderMathMetricsProbe extends RenderBox
   List<String> keys;
   void Function(Map<String, double> widths) onMeasured;
 
+  /// 是否抑制帧末上报。
+  ///
+  /// 离屏出图管线不产生帧（`PipelineOwner` 不传回调时 `requestVisualUpdate()`
+  /// 是空操作，永不排帧），帧末回调只会落在真实窗口的帧上，既不可控也可能永不
+  /// 触发。离屏路径把它置为 true，改用 [reportNow] 在同一轮里同步取数。
+  bool suppressPostFrameReport = false;
+
   bool _reportScheduled = false;
+
+  /// 同步读取各子级宽度并上报；全部量到返回 true。
+  ///
+  /// 供离屏管线在 `flushLayout()` 之后直接取数，完全不依赖帧回调。
+  bool reportNow() {
+    final Map<String, double> widths = _collectWidths();
+    if (widths.length != keys.length) return false;
+    onMeasured(widths);
+    return true;
+  }
+
+  Map<String, double> _collectWidths() {
+    final Map<String, double> widths = <String, double>{};
+    RenderBox? child = firstChild;
+    int index = 0;
+    while (child != null && index < keys.length) {
+      if (child.hasSize) widths[keys[index]] = child.size.width;
+      child = childAfter(child);
+      index++;
+    }
+    return widths;
+  }
 
   @override
   void setupParentData(RenderBox child) {
@@ -104,20 +133,13 @@ class RenderMathMetricsProbe extends RenderBox
   }
 
   void _scheduleReport() {
-    if (_reportScheduled) return;
+    if (suppressPostFrameReport || _reportScheduled) return;
     _reportScheduled = true;
     // 布局阶段不能重建，尺寸留到帧末上报。
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _reportScheduled = false;
-      if (!attached) return;
-      final Map<String, double> widths = <String, double>{};
-      RenderBox? child = firstChild;
-      int index = 0;
-      while (child != null && index < keys.length) {
-        if (child.hasSize) widths[keys[index]] = child.size.width;
-        child = childAfter(child);
-        index++;
-      }
+      if (suppressPostFrameReport || !attached) return;
+      final Map<String, double> widths = _collectWidths();
       if (widths.length == keys.length) onMeasured(widths);
     });
   }

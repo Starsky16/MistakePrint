@@ -1,3 +1,6 @@
+// 细线保护的默认游程长度直接取二值化模块的常量，避免同一份真相写两处。
+import '../render/raster/binarize.dart';
+
 /// 超宽公式的处理策略（计划 §5.5 / Q9）。
 enum OversizeStrategy {
   /// 先用 TeX 规则断行，仍超宽才整体缩放。
@@ -23,6 +26,8 @@ class PaperProfile {
     required this.mathFontPx,
     required this.lineHeight,
     required this.threshold,
+    required this.protectStructureLines,
+    required this.structureRunLength,
     required this.minLineWidthPx,
     required this.writePhys,
     required this.oversizeStrategy,
@@ -57,6 +62,12 @@ class PaperProfile {
   /// 二值化严格阈值。
   final int threshold;
 
+  /// 是否启用水平长游程结构线保护，用于救回被抗锯齿抹掉的分数线（计划 §5.3）。
+  final bool protectStructureLines;
+
+  /// 结构线保护的最小水平游程（点）。
+  final int structureRunLength;
+
   /// 结构线最小线宽（点）。
   final int minLineWidthPx;
 
@@ -87,6 +98,8 @@ const PaperProfile kPaperangP1Default = PaperProfile(
   mathFontPx: 24,
   lineHeight: 1.3,
   threshold: 128,
+  protectStructureLines: true,
+  structureRunLength: kStructureRunLength,
   minLineWidthPx: 1,
   writePhys: true,
   oversizeStrategy: OversizeStrategy.lineBreak,

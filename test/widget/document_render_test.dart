@@ -155,6 +155,8 @@ void main() {
       mathFontPx: 24,
       lineHeight: 1.3,
       threshold: 128,
+      protectStructureLines: true,
+      structureRunLength: kStructureRunLength,
       minLineWidthPx: 1,
       writePhys: true,
       oversizeStrategy: OversizeStrategy.scale,
