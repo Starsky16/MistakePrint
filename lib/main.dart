@@ -1,45 +1,57 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import 'app/app_version.dart';
+import 'app/input_page.dart';
+import 'state/profile_controller.dart';
 
 void main() {
   runApp(const MistakePrintApp());
 }
 
-/// 应用根组件。
+/// 应用根组件：持有唯一一份 [ProfileController]，并把当前档案共享给整棵树。
 ///
-/// 当前仅为 P0 平台基线骨架，版式与出图链路在后续阶段接入。
-class MistakePrintApp extends StatelessWidget {
-  const MistakePrintApp({super.key});
+/// 只有接线，没有业务：出图在输入页、展示与分享在预览页、参数在设置页。
+class MistakePrintApp extends StatefulWidget {
+  const MistakePrintApp({super.key, this.controller});
+
+  /// 测试注入一份不碰平台通道的控制器；为 null 时读应用私有目录里的存档。
+  final ProfileController? controller;
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MistakePrint',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E6B4F)),
-        // Material Design 3 是当前 Flutter 版本的默认行为，显式列出以固定意图。
-        useMaterial3: true,
-      ),
-      home: const HomePage(),
-    );
-  }
+  State<MistakePrintApp> createState() => _MistakePrintAppState();
 }
 
-/// 首页占位。
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class _MistakePrintAppState extends State<MistakePrintApp> {
+  late final ProfileController _controller =
+      widget.controller ?? ProfileController();
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('MistakePrint')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(
-          '把含 LaTeX 的错题题干渲染成热敏打印机位图。',
-          style: theme.textTheme.bodyLarge,
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    // 读存档：没读到也不会卡住界面，未校准的默认档案本来就能直接出图。
+    unawaited(_controller.load());
   }
+
+  @override
+  void dispose() {
+    // 注入进来的控制器由注入方负责释放。
+    if (widget.controller == null) _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ProfileScope(
+        controller: _controller,
+        child: MaterialApp(
+          title: kAppName,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E6B4F)),
+            // Material Design 3 是当前 Flutter 版本的默认行为，显式列出以固定意图。
+            useMaterial3: true,
+          ),
+          home: const InputPage(),
+        ),
+      );
 }
