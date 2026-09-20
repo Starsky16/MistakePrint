@@ -17,6 +17,8 @@ dependencies:
   image: 4.9.1
   # 系统分享面板。
   share_plus: 13.1.0
+  # 临时目录（出图 PNG 落盘后交给 share_plus 复制进它自己的文件提供者目录）。
+  path_provider: 2.1.6
 
 dev_dependencies:
   flutter_test:
