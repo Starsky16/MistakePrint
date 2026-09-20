@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import '../render/text/text_styles.dart';
+
 /// 目标机型的名义点阵宽度（喵喵机 P1）。默认值，真实值由校准向导得出。
 const int kPaperWidth = 384;
 
@@ -8,23 +10,14 @@ const int kPaperWidth = 384;
 /// 因为方法调用不是常量表达式。
 const double kPaperWidthDots = 384;
 
-/// 正文字体族名，与 pubspec.yaml 的声明一致。
-const String kBodyFont = 'NotoSansSC';
-
-/// 数学符号兜底字体族名。
-const String kSymbolFont = 'STIXTwoMath';
-
 /// 图 A 高度。
 const double kFigureAHeight = 48;
 
 const Color _black = Color(0xFF000000);
 const Color _white = Color(0xFFFFFFFF);
 
-TextStyle bodyStyle(double fontSize, {Color color = _black}) =>
-    TextStyle(fontFamily: kBodyFont, fontSize: fontSize, color: color, height: 1.3);
-
-TextStyle symbolStyle(double fontSize, {Color color = _black}) =>
-    TextStyle(fontFamily: kSymbolFont, fontSize: fontSize, color: color, height: 1.3);
+// 字体族名与正文字样统一由 render/text/text_styles.dart 提供（正文渲染与校准素材
+// 必须是同一套字体定义）。
 
 /// 固定宽度画布，背景纯白。
 Widget canvas(double width, {double? height, required Widget child}) => SizedBox(

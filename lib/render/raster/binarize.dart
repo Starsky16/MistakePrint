@@ -13,11 +13,21 @@ const int kStructureRunLength = 8;
 
 /// 二值化为黑点矩阵（true = 打印黑点）。
 ///
+/// [strictThreshold] 决定「笔画主体」的取法，默认 [kStrictThreshold]；档位与
+/// 开发者模式可以改它，但宽松阈值与游程长度是保护机制的内部定义，不对外开放。
+///
 /// [protectStructureLines] 打开时，对「宽松阈值下、严格阈值外」的像素做水平游程判定，
 /// 游程不短于 [kStructureRunLength] 的整段强制变黑——用于救回被抗锯齿抹掉的分数线。
+///
+/// 已知限制（P2 实测，待 P3 校准定夺）：保护只判水平走向，救不回**细竖画**。
+/// 例如行内公式 `\frac{x}{2}+\frac{1}{x}` 的加号，横画是纯黑 0（16 点长），
+/// 竖画整列恒为灰度 164、水平游程仅 2 点，严格阈值下被整条丢弃，肉眼读成减号。
+/// 而 CJK 文字的竖画同样落在 164，任何一种能救回它的方案都会让全图墨量涨约 29%
+/// （迟滞阈值取 170 时 100% 救回，代价见计划 §5.3），故默认不启用。
 List<List<bool>> binarize(
   RawCapture cap, {
   bool protectStructureLines = false,
+  int strictThreshold = kStrictThreshold,
 }) {
   final Uint8List lum = luminanceOf(cap);
   final int w = cap.width;
@@ -25,7 +35,8 @@ List<List<bool>> binarize(
 
   final List<List<bool>> black = List<List<bool>>.generate(
     h,
-    (int y) => List<bool>.generate(w, (int x) => lum[y * w + x] < kStrictThreshold),
+    (int y) =>
+        List<bool>.generate(w, (int x) => lum[y * w + x] < strictThreshold),
   );
 
   if (!protectStructureLines) {
@@ -66,4 +77,17 @@ int countDark(List<List<bool>> black) {
     }
   }
   return dark;
+}
+
+/// 最长水平黑游程（点数），用于判定结构线是否连通、无断点。
+int longestDarkRun(List<List<bool>> black) {
+  int longest = 0;
+  for (final List<bool> row in black) {
+    int run = 0;
+    for (final bool v in row) {
+      run = v ? run + 1 : 0;
+      if (run > longest) longest = run;
+    }
+  }
+  return longest;
 }

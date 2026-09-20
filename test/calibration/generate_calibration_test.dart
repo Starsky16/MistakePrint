@@ -11,9 +11,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mistake_print/calibration/calibration_figures.dart';
-import 'package:mistake_print/imaging/binarize.dart';
-import 'package:mistake_print/imaging/png_encode.dart';
-import 'package:mistake_print/imaging/raw_capture.dart';
+import 'package:mistake_print/render/raster/binarize.dart';
+import 'package:mistake_print/render/raster/png_encode.dart';
+import 'package:mistake_print/render/raster/raw_capture.dart';
 
 import '../support/png_file.dart';
 import '../support/render_capture.dart';

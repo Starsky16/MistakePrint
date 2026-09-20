@@ -1,5 +1,5 @@
 import 'package:flutter/services.dart';
-import 'package:mistake_print/calibration/calibration_figures.dart';
+import 'package:mistake_print/render/text/text_styles.dart';
 
 /// flutter_math_fork 自带的 KaTeX 字体族与文件。
 const List<(String, String)> _katexFonts = [

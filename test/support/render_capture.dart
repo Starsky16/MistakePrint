@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mistake_print/imaging/raw_capture.dart';
+import 'package:mistake_print/render/raster/raw_capture.dart';
 
 /// 常规图的画面尺寸；够容纳图 D、图 E-tall 这类长图。
 const Size kTallSurface = Size(384, 4200);
