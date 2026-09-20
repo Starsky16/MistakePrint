@@ -7,6 +7,7 @@ import '../profiles/presets.dart';
 import '../render/raster/binarize.dart';
 import '../state/profile_controller.dart';
 import 'app_version.dart';
+import 'calibration/calibration_wizard_page.dart';
 import 'developer_settings_page.dart';
 
 /// 设置页（Q14：这里只出现档位，裸参数进开发者模式）。
@@ -23,6 +24,22 @@ class SettingsPage extends StatelessWidget {
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         children: <Widget>[
+          const _SectionHeader('校准'),
+          ListTile(
+            title: const Text('打印校准'),
+            subtitle: Text(
+              profile.isCalibrated
+                  ? '已校准过。想复校就再打一张校准条。'
+                  : '打一张校准条，把宽度、字号、细线一次调准（约 200mm）。',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (BuildContext context) => const CalibrationWizardPage(),
+              ),
+            ),
+          ),
+          const Divider(),
           const _SectionHeader('细线增强'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),

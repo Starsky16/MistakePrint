@@ -195,7 +195,22 @@ void main() {
     expect(find.textContaining('不做结构线保护'), findsOneWidget);
   });
 
+  testWidgets('设置页有打印校准入口，点进去是校准向导', (WidgetTester tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(wrap(controller(), const SettingsPage()));
+
+    expect(find.text('打印校准'), findsOneWidget);
+
+    await tester.tap(find.text('打印校准'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('汇总预览'), findsOneWidget);
+    expect(find.text('生成校准条并分享'), findsOneWidget);
+  });
+
   testWidgets('设置页连点版本号 7 次进开发者模式', (WidgetTester tester) async {
+    // 设置页多了「校准」分区后版本号落到了默认视口之外，先拉长画布再点。
+    useTallSurface(tester);
     await tester.pumpWidget(wrap(controller(), const SettingsPage()));
 
     for (int i = 0; i < 7; i++) {
