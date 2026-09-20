@@ -81,6 +81,46 @@ class PaperProfile {
 
   /// 是否已由用户校准；false 表示仍是保守默认值（experimental）。
   final bool isCalibrated;
+
+  /// 逐字段派生一份新档案（校准向导与档位展开都靠它落地）。
+  PaperProfile copyWith({
+    String? id,
+    String? name,
+    int? dpi,
+    double? paperWidthMm,
+    int? printableDotsWidth,
+    double? minFontPx,
+    double? bodyFontPx,
+    double? mathFontPx,
+    double? lineHeight,
+    int? threshold,
+    bool? protectStructureLines,
+    int? structureRunLength,
+    int? minLineWidthPx,
+    bool? writePhys,
+    OversizeStrategy? oversizeStrategy,
+    int? columns,
+    bool? isCalibrated,
+  }) =>
+      PaperProfile(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        dpi: dpi ?? this.dpi,
+        paperWidthMm: paperWidthMm ?? this.paperWidthMm,
+        printableDotsWidth: printableDotsWidth ?? this.printableDotsWidth,
+        minFontPx: minFontPx ?? this.minFontPx,
+        bodyFontPx: bodyFontPx ?? this.bodyFontPx,
+        mathFontPx: mathFontPx ?? this.mathFontPx,
+        lineHeight: lineHeight ?? this.lineHeight,
+        threshold: threshold ?? this.threshold,
+        protectStructureLines: protectStructureLines ?? this.protectStructureLines,
+        structureRunLength: structureRunLength ?? this.structureRunLength,
+        minLineWidthPx: minLineWidthPx ?? this.minLineWidthPx,
+        writePhys: writePhys ?? this.writePhys,
+        oversizeStrategy: oversizeStrategy ?? this.oversizeStrategy,
+        columns: columns ?? this.columns,
+        isCalibrated: isCalibrated ?? this.isCalibrated,
+      );
 }
 
 /// 喵喵机 P1 的保守默认档案。

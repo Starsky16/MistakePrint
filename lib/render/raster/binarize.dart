@@ -11,6 +11,16 @@ const int kLooseThreshold = 210;
 /// 结构线判定的最小水平游程（像素）。
 const int kStructureRunLength = 8;
 
+/// 细线增强「激进」档使用的严格阈值。
+///
+/// 计划 §5.3 实测：CJK 文字与数学符号的细竖画整列灰度恒为 164（水平游程仅 2 点，
+/// 长游程保护救不回来），阈值 128 会把整列丢弃——`\frac{x}{2}+\frac{1}{x}` 的加号
+/// 会被读成减号。取 170 可 100% 救回，代价是全图墨量 +29.1%。
+///
+/// 因此它**只作为用户显式选择的档位**存在（[ThinLinePreset.aggressive]），
+/// 不作默认值。
+const int kAggressiveThreshold = 170;
+
 /// 二值化为黑点矩阵（true = 打印黑点）。
 ///
 /// [strictThreshold] 决定「笔画主体」的取法，默认 [kStrictThreshold]；档位与
