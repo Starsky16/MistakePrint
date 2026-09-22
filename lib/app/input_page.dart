@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../domain/input_preprocess.dart';
 import '../profiles/paper_profile.dart';
 import '../render/offscreen/offscreen_canvas.dart';
 import '../render/offscreen/print_renderer.dart';
@@ -44,16 +45,19 @@ class _InputPageState extends State<InputPage> {
   String _stage = '';
   String? _error;
 
-  /// 提示条是否已被关掉。首次从偏好读入，之后只由本页维护。
-  bool _hintDismissed = false;
+  /// 界面偏好：提示条开关与输出模式，改哪一项都整份写回。
+  AppPrefs _prefs = const AppPrefs();
 
   /// 输入框里是否有内容（只关心「空↔非空」这一次翻转，不必每次按键都重建）。
   bool _hasText = false;
 
+  /// 预处理小结（「识别到 N 处公式」）。只在文字真的变了时才重建页面。
+  String _summary = '';
+
   @override
   void initState() {
     super.initState();
-    _text.addListener(_onTextChanged);
+    _text.addListener(_refreshSummary);
     unawaited(_loadPrefs());
   }
 
@@ -63,20 +67,40 @@ class _InputPageState extends State<InputPage> {
     super.dispose();
   }
 
-  void _onTextChanged() {
-    final bool hasText = _text.text.trim().isNotEmpty;
-    if (hasText != _hasText) setState(() => _hasText = hasText);
+  /// 重算预处理小结；小结文字没变就不重建。
+  void _refreshSummary() {
+    final String text = _text.text.trim();
+    final bool hasText = text.isNotEmpty;
+    final String summary = hasText
+        ? preprocess(text, mode: _prefs.outputMode).report.summaryLine
+        : '';
+    if (hasText == _hasText && summary == _summary) return;
+    setState(() {
+      _hasText = hasText;
+      _summary = summary;
+    });
   }
 
   Future<void> _loadPrefs() async {
     final AppPrefs prefs = await widget.prefsStore.load();
     if (!mounted) return;
-    setState(() => _hintDismissed = prefs.calibrationHintDismissed);
+    setState(() => _prefs = prefs);
+    _refreshSummary();
   }
 
-  Future<void> _dismissHint() async {
-    setState(() => _hintDismissed = true);
-    await widget.prefsStore.save(const AppPrefs(calibrationHintDismissed: true));
+  /// 偏好只有一个来源：本页。
+  Future<void> _savePrefs(AppPrefs next) async {
+    setState(() => _prefs = next);
+    await widget.prefsStore.save(next);
+  }
+
+  Future<void> _dismissHint() =>
+      _savePrefs(_prefs.copyWith(calibrationHintDismissed: true));
+
+  Future<void> _setMode(OutputMode mode) async {
+    if (mode == _prefs.outputMode) return;
+    await _savePrefs(_prefs.copyWith(outputMode: mode));
+    _refreshSummary();
   }
 
   Future<void> _render() async {
@@ -84,6 +108,8 @@ class _InputPageState extends State<InputPage> {
     if (text.isEmpty || _rendering) return;
 
     final PaperProfile profile = ProfileScope.of(context).profile;
+    // 预处理层是「粘贴原文」与「分词器」之间唯一的一道转换，出图前先过它。
+    final PreprocessResult prepared = preprocess(text, mode: _prefs.outputMode);
     setState(() {
       _rendering = true;
       _error = null;
@@ -93,7 +119,7 @@ class _InputPageState extends State<InputPage> {
 
     try {
       final PrintImage image = await widget.renderer.render(
-        text,
+        prepared.text,
         profile,
         onProgress: (double progress, String stage) {
           if (!mounted) return;
@@ -107,7 +133,10 @@ class _InputPageState extends State<InputPage> {
       setState(() => _rendering = false);
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (BuildContext context) => PreviewPage(image: image),
+          builder: (BuildContext context) => PreviewPage(
+            image: image,
+            notices: prepared.report.notices,
+          ),
         ),
       );
     } on OffscreenRenderException catch (error) {
@@ -129,7 +158,8 @@ class _InputPageState extends State<InputPage> {
   Widget build(BuildContext context) {
     final ProfileController controller = ProfileScope.of(context);
     final PaperProfile profile = controller.profile;
-    final bool showHint = !profile.isCalibrated && !_hintDismissed;
+    final bool showHint =
+        !profile.isCalibrated && !_prefs.calibrationHintDismissed;
 
     return Scaffold(
       appBar: AppBar(
@@ -157,6 +187,23 @@ class _InputPageState extends State<InputPage> {
                 ),
               ),
             ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: SegmentedButton<OutputMode>(
+              segments: OutputMode.values
+                  .map(
+                    (OutputMode mode) => ButtonSegment<OutputMode>(
+                      value: mode,
+                      label: Text(mode.label),
+                    ),
+                  )
+                  .toList(),
+              selected: <OutputMode>{_prefs.outputMode},
+              showSelectedIcon: false,
+              onSelectionChanged: (Set<OutputMode> selection) =>
+                  unawaited(_setMode(selection.first)),
+            ),
+          ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -171,12 +218,11 @@ class _InputPageState extends State<InputPage> {
                 decoration: InputDecoration(
                   border: const OutlineInputBorder(),
                   alignLabelWithHint: true,
-                  labelText: '题干（支持 \$...\$ 行内公式与 \$\$...\$\$ 块级公式）',
+                  labelText: '题干（直接粘贴 AI 解答即可，裸 LaTeX 会自动识别）',
                   hintText: kSampleText,
                   suffixIcon: IconButton(
-                    onPressed: _rendering
-                        ? null
-                        : () => setState(() => _text.text = kSampleText),
+                    onPressed:
+                        _rendering ? null : () => _text.text = kSampleText,
                     icon: const Icon(Icons.auto_awesome_outlined),
                     tooltip: '填入样例',
                   ),
@@ -189,6 +235,7 @@ class _InputPageState extends State<InputPage> {
             progress: _progress,
             stage: _stage,
             error: _error,
+            summary: _summary,
             widthDots: profile.printableDotsWidth,
           ),
           SafeArea(
@@ -253,13 +300,14 @@ class _CalibrationHint extends StatelessWidget {
   }
 }
 
-/// 出图进度 / 错误 / 当前宽度。
+/// 出图进度 / 错误 / 预处理小结 / 当前宽度。
 class _StatusPanel extends StatelessWidget {
   const _StatusPanel({
     required this.rendering,
     required this.progress,
     required this.stage,
     required this.error,
+    required this.summary,
     required this.widthDots,
   });
 
@@ -267,6 +315,10 @@ class _StatusPanel extends StatelessWidget {
   final double progress;
   final String stage;
   final String? error;
+
+  /// 预处理小结，空串表示还没输入内容。
+  final String summary;
+
   final int widthDots;
 
   @override
@@ -298,11 +350,14 @@ class _StatusPanel extends StatelessWidget {
                 ),
               ],
             )
-          else
+          else ...<Widget>[
+            if (summary.isNotEmpty)
+              Text(summary, style: theme.textTheme.bodySmall),
             Text(
               '输出宽度 $widthDots 点（1:1，不做缩放）',
               style: theme.textTheme.bodySmall,
             ),
+          ],
         ],
       ),
     );

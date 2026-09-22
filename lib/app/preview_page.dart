@@ -12,10 +12,14 @@ class PreviewPage extends StatefulWidget {
   const PreviewPage({
     super.key,
     required this.image,
+    this.notices = const <String>[],
     this.shareService = const ShareService(),
   });
 
   final PrintImage image;
+
+  /// 预处理层动过的地方（识别到几处公式、删了几个表情……），空列表表示没动过。
+  final List<String> notices;
 
   final ShareService shareService;
 
@@ -81,6 +85,16 @@ class _PreviewPageState extends State<PreviewPage> {
                   '${image.elapsed.inMilliseconds} ms',
                   style: theme.textTheme.bodySmall,
                 ),
+                if (widget.notices.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 8),
+                  for (final String notice in widget.notices)
+                    Text(
+                      '· $notice',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
                 if (_report != null) ...<Widget>[
                   const SizedBox(height: 8),
                   SelectableText(

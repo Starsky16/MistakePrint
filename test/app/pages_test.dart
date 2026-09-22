@@ -11,6 +11,7 @@ import 'package:mistake_print/app/developer_settings_page.dart';
 import 'package:mistake_print/app/input_page.dart';
 import 'package:mistake_print/app/preview_page.dart';
 import 'package:mistake_print/app/settings_page.dart';
+import 'package:mistake_print/domain/input_preprocess.dart';
 import 'package:mistake_print/profiles/paper_profile.dart';
 import 'package:mistake_print/profiles/presets.dart';
 import 'package:mistake_print/profiles/profile_store.dart';
@@ -55,6 +56,22 @@ class FakeRenderer extends PrintRenderer {
     onProgress?.call(0.5, '排版完成');
     return image;
   }
+}
+
+/// 只记在内存里的偏好存档。
+///
+/// `AppPrefsStore` 的落盘是真实文件 IO，在 fake-async 测试区里不会完成；要断言
+/// 「切换后确实写回了偏好」，就得把 IO 换成内存。
+class FakePrefsStore extends AppPrefsStore {
+  FakePrefsStore();
+
+  AppPrefs saved = const AppPrefs();
+
+  @override
+  Future<AppPrefs> load() async => saved;
+
+  @override
+  Future<void> save(AppPrefs prefs) async => saved = prefs;
 }
 
 void main() {
@@ -114,7 +131,7 @@ void main() {
       );
     });
 
-    testWidgets('出图后进入预览页，题干原样传给渲染器', (WidgetTester tester) async {
+    testWidgets('出图后进入预览页，题干经预处理后传给渲染器', (WidgetTester tester) async {
       final FakeRenderer renderer = FakeRenderer(sampleImage());
       await tester.pumpWidget(wrap(
         controller(),
@@ -129,9 +146,56 @@ void main() {
       await tester.tap(find.text('生成图片'));
       await tester.pumpAndSettle();
 
+      // 样例里没有裸 LaTeX，预处理后与原文逐字相同（已有 `$…$` 被保护，不进公式统计）。
       expect(renderer.received, <String>[kSampleText]);
       expect(find.text('预览'), findsOneWidget);
       expect(find.textContaining('384 × 151 点'), findsOneWidget);
+    });
+
+    testWidgets('裸 LaTeX 会被预处理层包上定界符', (WidgetTester tester) async {
+      final FakeRenderer renderer = FakeRenderer(sampleImage());
+      await tester.pumpWidget(wrap(
+        controller(),
+        InputPage(
+          renderer: renderer,
+          prefsStore: AppPrefsStore(rootProvider: () async => tempRoot),
+        ),
+      ));
+
+      await tester.enterText(find.byType(TextField), r'\frac{1}{2} > 0');
+      await tester.pump();
+      // 输入页要先把识别结果给用户核对，不能等出图才知道认错了。
+      expect(find.textContaining('识别到 1 处公式'), findsOneWidget);
+
+      await tester.tap(find.text('生成图片'));
+      await tester.pumpAndSettle();
+
+      expect(renderer.received.single, r'$$\frac{1}{2} > 0$$');
+      expect(find.textContaining('识别到 1 处公式'), findsOneWidget);
+    });
+
+    testWidgets('输出模式写回偏好，并真的用在裁剪上', (WidgetTester tester) async {
+      final FakePrefsStore store = FakePrefsStore();
+      final FakeRenderer renderer = FakeRenderer(sampleImage());
+      await tester.pumpWidget(wrap(
+        controller(),
+        InputPage(renderer: renderer, prefsStore: store),
+      ));
+
+      await tester.tap(find.text(OutputMode.stemOnly.label));
+      await tester.pump();
+      expect(store.saved.outputMode, OutputMode.stemOnly);
+
+      await tester.enterText(
+        find.byType(TextField),
+        '求 \\frac{1}{2} 的单调区间。\n\n解：\n\n\\cos x > 0',
+      );
+      await tester.pump();
+      await tester.tap(find.text('生成图片'));
+      await tester.pumpAndSettle();
+
+      expect(renderer.received.single, isNot(contains('解：')));
+      expect(renderer.received.single, r'求 \(\frac{1}{2}\) 的单调区间。');
     });
 
     testWidgets('未校准提示条可关掉', (WidgetTester tester) async {
@@ -255,16 +319,25 @@ void main() {
     test('偏好在注入目录里往返一致', () async {
       final AppPrefsStore store = AppPrefsStore(rootProvider: () async => tempRoot);
       expect((await store.load()).calibrationHintDismissed, isFalse);
+      expect((await store.load()).outputMode, OutputMode.fullText);
 
-      await store.save(const AppPrefs(calibrationHintDismissed: true));
-      expect((await store.load()).calibrationHintDismissed, isTrue);
+      await store.save(const AppPrefs(
+        calibrationHintDismissed: true,
+        outputMode: OutputMode.stemOnly,
+      ));
+
+      final AppPrefs loaded = await store.load();
+      expect(loaded.calibrationHintDismissed, isTrue);
+      expect(loaded.outputMode, OutputMode.stemOnly);
     });
 
     test('存档坏掉时回落默认值，不抛', () async {
       final AppPrefsStore store = AppPrefsStore(rootProvider: () async => tempRoot);
       await (await store.file()).writeAsString('{ 半个 JSON');
 
-      expect((await store.load()).calibrationHintDismissed, isFalse);
+      final AppPrefs loaded = await store.load();
+      expect(loaded.calibrationHintDismissed, isFalse);
+      expect(loaded.outputMode, OutputMode.fullText);
     });
   });
 }
