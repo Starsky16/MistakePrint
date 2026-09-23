@@ -1,8 +1,32 @@
+import java.io.File
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// release 签名材料一律从 `d:\code\keystore` 引用，仓库内不存密钥副本。
+// `android/key.properties` 已 gitignore，且只记路径不记口令：口令在构建期从 keystore
+// 目录下的共用口令文件读取，因此整机口令始终只有一份。
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
+// 先认字面量键（兼容 Flutter 模板的标准写法），再退回「路径键 + 读文件」。
+fun keystoreSecret(literalKey: String, pathKey: String): String? {
+    keystoreProperties.getProperty(literalKey)?.let { return it }
+    val path = keystoreProperties.getProperty(pathKey) ?: return null
+    val file = File(path)
+    if (!file.exists()) return null
+    return file.readText().trim()
+}
+
+val releaseStorePath = keystoreProperties.getProperty("storeFile")
+val hasReleaseKeystore = releaseStorePath != null && File(releaseStorePath).exists()
 
 android {
     namespace = "com.starksky16.mistake_print"
@@ -28,11 +52,26 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = File(releaseStorePath!!)
+                storePassword = keystoreSecret("storePassword", "storePasswordFile")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreSecret("keyPassword", "keyPasswordFile")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // 拿不到 keystore（例如干净 clone 且没建 key.properties）时回落 debug 签名，
+            // 保证 `flutter run --release` 仍可用；正式发版必须让 hasReleaseKeystore 为真。
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
