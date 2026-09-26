@@ -28,6 +28,7 @@ class PaperProfile {
     required this.threshold,
     required this.protectStructureLines,
     required this.structureRunLength,
+    required this.promoteSubDotStrokes,
     required this.minLineWidthPx,
     required this.writePhys,
     required this.oversizeStrategy,
@@ -68,6 +69,10 @@ class PaperProfile {
   /// 结构线保护的最小水平游程（点）。
   final int structureRunLength;
 
+  /// 是否做亚点笔画提升：把覆盖率不足一个点的窄灰带规则化成 1 点宽的实线
+  /// （计划 §5.4a，超采样之后细竖画只剩这一条救法）。
+  final bool promoteSubDotStrokes;
+
   /// 结构线最小线宽（点）。
   final int minLineWidthPx;
 
@@ -96,6 +101,7 @@ class PaperProfile {
     int? threshold,
     bool? protectStructureLines,
     int? structureRunLength,
+    bool? promoteSubDotStrokes,
     int? minLineWidthPx,
     bool? writePhys,
     OversizeStrategy? oversizeStrategy,
@@ -115,6 +121,8 @@ class PaperProfile {
         threshold: threshold ?? this.threshold,
         protectStructureLines: protectStructureLines ?? this.protectStructureLines,
         structureRunLength: structureRunLength ?? this.structureRunLength,
+        promoteSubDotStrokes:
+            promoteSubDotStrokes ?? this.promoteSubDotStrokes,
         minLineWidthPx: minLineWidthPx ?? this.minLineWidthPx,
         writePhys: writePhys ?? this.writePhys,
         oversizeStrategy: oversizeStrategy ?? this.oversizeStrategy,
@@ -127,6 +135,10 @@ class PaperProfile {
 ///
 /// 零标定路线（Q13）下这些值不会在开发期被实机验证，一律取「不会更差」的一侧
 /// （计划 §2.3），并保证都能被校准向导改掉。
+///
+/// 二值化相关的四项（`threshold` / `protectStructureLines` / `structureRunLength` /
+/// `promoteSubDotStrokes`）取自「标准」档，它们的取值依据是 **v0.1.0 实机结论**
+/// 与 T1 离线量测，不再是开发期的猜测（计划 §5.4a）。
 const PaperProfile kPaperangP1Default = PaperProfile(
   id: 'paperang-p1',
   name: '作业帮喵喵机 P1（默认值，未校准）',
@@ -137,9 +149,10 @@ const PaperProfile kPaperangP1Default = PaperProfile(
   bodyFontPx: 20,
   mathFontPx: 24,
   lineHeight: 1.3,
-  threshold: 128,
+  threshold: kStrictThreshold,
   protectStructureLines: true,
   structureRunLength: kStructureRunLength,
+  promoteSubDotStrokes: true,
   minLineWidthPx: 1,
   writePhys: true,
   oversizeStrategy: OversizeStrategy.lineBreak,

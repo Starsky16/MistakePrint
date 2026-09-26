@@ -15,6 +15,7 @@ import 'package:mistake_print/profiles/paper_profile.dart';
 import 'package:mistake_print/profiles/presets.dart';
 import 'package:mistake_print/profiles/profile_store.dart';
 import 'package:mistake_print/render/offscreen/print_renderer.dart';
+import 'package:mistake_print/render/raster/binarize.dart';
 import 'package:mistake_print/render/raster/png_encode.dart';
 import 'package:mistake_print/state/app_prefs.dart';
 import 'package:mistake_print/state/profile_controller.dart';
@@ -168,20 +169,21 @@ void main() {
 
     await tester.tap(chip('width', '372'));
     await tester.pump();
-    // 细线档位先展开，阈值项只覆盖 threshold：这里选激进档 + 阈值 150。
+    // 细线档位先展开，阈值项只覆盖 threshold：这里选激进档 + 阈值 160（与默认档不同，
+    // 也与激进档的 $kAggressiveThreshold 不同，改完就不再属于任何档位）。
     await tester.tap(chip('thin', ThinLinePreset.aggressive.label));
     await tester.pump();
-    await tester.tap(chip('threshold', '150'));
+    await tester.tap(chip('threshold', '160'));
     await tester.pump();
 
     expect(find.text('· 有效宽度：384 → 372'), findsOneWidget);
-    expect(find.text('· 严格阈值：128 → 150'), findsOneWidget);
+    expect(find.text('· 严格阈值：$kStrictThreshold → 160'), findsOneWidget);
 
     await tester.tap(find.text('保存到档案'));
     await tester.pump();
 
     expect(c.profile.printableDotsWidth, 372);
-    expect(c.profile.threshold, 150);
+    expect(c.profile.threshold, 160);
     expect(c.profile.protectStructureLines, isTrue, reason: '激进档的保护不能被阈值项改掉');
     expect(c.profile.isCalibrated, isTrue);
     expect(c.thinLinePreset, isNull, reason: '阈值被单独改过，已不属于任何档位');

@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../layout/math_metrics.dart';
+import '../raster/downsample.dart';
 import '../raster/raw_capture.dart';
 
 /// 离屏出图的阶段回调：本 job 的进度比例（0..1）+ 阶段说明。
@@ -47,7 +48,11 @@ class OffscreenCapture {
 /// 为什么不用「可见树 + `Offstage` / `Opacity(0)`」：`Offstage` 不绘制、
 /// `Opacity(0)` 与屏幕外布局仍参与绘制，几千点高的长图需要超大画布，还受裁剪与
 /// 滚动复用干扰，批量时反复挂载拆卸。离屏则固定宽度、高度由内容决定、
-/// `pixelRatio` 恒 1.0，天然支持批量与长图。
+/// `pixelRatio` 取超采样倍率 S，天然支持批量与长图。
+///
+/// **超采样封死在本类内部**（计划 §5.4a）：内部按 [supersampleFactor] 用 `pixelRatio: S`
+/// 光栅化，再用盒式降采样回到点阵宽度，因此对外的 [RawCapture] 语义仍是
+/// 「1 像素 = 1 打印点」，调用方无需知道 S 的存在。
 ///
 /// 关键点：`PipelineOwner` 不传任何回调时 `requestVisualUpdate()` 是空操作，
 /// **永不排帧**，所以这里不能等帧。公式宽度改用
@@ -136,7 +141,21 @@ class OffscreenCanvas {
       if (captured == null) {
         throw const OffscreenRenderException('未找到用于捕获的 RepaintBoundary');
       }
-      final ui.Image image = await captured.toImage(pixelRatio: 1.0);
+
+      // 目标高度必须**先于**光栅化定下来：超采样倍率由「像素总数预算」推出，而超高
+      // 的内容要在分配像素缓冲之前就报错（否则内存先爆）。
+      final int heightDots = captured.size.height.ceil();
+      if (heightDots > kMaxOutputHeightDots) {
+        throw OffscreenRenderException(
+          '内容高度 $heightDots 点超过上限 $kMaxOutputHeightDots 点，请拆分题目',
+        );
+      }
+      final int factor =
+          supersampleFactor(widthDots: widthDots, heightDots: heightDots);
+      onStage?.call(0.6, factor > 1 ? '光栅化（$factor× 超采样）' : '光栅化');
+
+      // 超采样只改 pixelRatio：`ViewConfiguration` 一个字都不动（计划 §5.4a）。
+      final ui.Image image = await captured.toImage(pixelRatio: factor.toDouble());
       debugOnImage?.call(image);
       try {
         final ByteData? data =
@@ -144,20 +163,31 @@ class OffscreenCanvas {
         if (data == null) {
           throw const OffscreenRenderException('toByteData 返回 null');
         }
-        onStage?.call(1, '光栅化完成');
+        // 第一层：超采样出图的宽度必须是点阵宽度的整数倍。
+        if (image.width != widthDots * factor) {
+          throw OffscreenRenderException(
+            '超采样出图宽度 ${image.width} 点不等于 ${widthDots * factor} 点',
+          );
+        }
 
-        final RawCapture raw =
-            RawCapture(data.buffer.asUint8List(), image.width, image.height);
+        onStage?.call(0.9, '降采样');
+        final RawCapture raw = boxDownsample(
+          RawCapture(data.buffer.asUint8List(), image.width, image.height),
+          factor,
+        );
+        // 第二层：降采样后必须回到「1 像素 = 1 打印点」的语义。
         if (raw.width != widthDots) {
           throw OffscreenRenderException(
             '出图宽度 ${raw.width} 点不等于目标 $widthDots 点',
           );
         }
-        if (raw.height > kMaxOutputHeightDots) {
+        // 第三层：高度用的恒等式 ceil(ceil(S·H)/S) == ceil(H)，H 取布局后的真实高度。
+        if (raw.height != heightDots) {
           throw OffscreenRenderException(
-            '内容高度 ${raw.height} 点超过上限 $kMaxOutputHeightDots 点，请拆分题目',
+            '降采样后高度 ${raw.height} 点与目标 $heightDots 点不一致',
           );
         }
+        onStage?.call(1, '光栅化完成');
         return OffscreenCapture(raw, layoutPasses: layoutPasses);
       } finally {
         // 串行单张：任何时候最多一个 ui.Image 存活。

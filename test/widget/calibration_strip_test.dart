@@ -224,9 +224,11 @@ void main() {
         reason: '至少得有一个字号能把三档全部分开，用户才有得选');
 
     // 阈值区：两端的阈值必须真的不同，否则阈值项没有可判读性。
-    final int lenient = countDark(samples.threshold[110]!.bits);
-    final int strict = countDark(samples.threshold[170]!.bits);
-    debugPrint('[校准条] 阈值区黑点：110→$lenient，170→$strict');
+    final int lowThreshold = kThresholdCandidates.first;
+    final int highThreshold = kThresholdCandidates.last;
+    final int lenient = countDark(samples.threshold[lowThreshold]!.bits);
+    final int strict = countDark(samples.threshold[highThreshold]!.bits);
+    debugPrint('[校准条] 阈值区黑点：$lowThreshold→$lenient，$highThreshold→$strict');
     expect(strict, greaterThan(lenient));
   });
 

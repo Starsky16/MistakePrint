@@ -76,6 +76,7 @@ class PrintRenderer {
         strictThreshold: profile.threshold,
         protectStructureLines: profile.protectStructureLines,
         structureRunLength: profile.structureRunLength,
+        promoteSubDotStrokes: profile.promoteSubDotStrokes,
         withPhys: profile.writePhys,
       ),
     );
@@ -102,6 +103,7 @@ class _EncodeRequest {
     required this.strictThreshold,
     required this.protectStructureLines,
     required this.structureRunLength,
+    required this.promoteSubDotStrokes,
     required this.withPhys,
   });
 
@@ -111,6 +113,7 @@ class _EncodeRequest {
   final int strictThreshold;
   final bool protectStructureLines;
   final int structureRunLength;
+  final bool promoteSubDotStrokes;
   final bool withPhys;
 }
 
@@ -124,6 +127,7 @@ class _EncodeRequest {
     protectStructureLines: req.protectStructureLines,
     strictThreshold: req.strictThreshold,
     structureRunLength: req.structureRunLength,
+    promoteSubDotStrokes: req.promoteSubDotStrokes,
   );
   return (encodeBitmap(black, withPhys: req.withPhys), countDark(black));
 }

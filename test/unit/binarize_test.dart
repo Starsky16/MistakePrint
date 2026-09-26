@@ -43,15 +43,16 @@ List<List<int>> oneRow(
 
 void main() {
   group('二值化：阈值', () {
-    test('严格阈值 128：低于它才是黑', () {
+    test('严格阈值 150：低于它才是黑', () {
       expect(
-        binarize(grayCapture(oneRow(10, value: 127, start: 0, end: 10)))
+        binarize(grayCapture(
+                oneRow(10, value: kStrictThreshold - 1, start: 0, end: 10)))
             .single
             .every((bool v) => v),
         isTrue,
       );
       expect(
-        binarize(grayCapture(oneRow(10, value: 128, start: 0, end: 10)))
+        binarize(grayCapture(oneRow(10, value: kStrictThreshold, start: 0, end: 10)))
             .single
             .any((bool v) => v),
         isFalse,
@@ -71,7 +72,7 @@ void main() {
   });
 
   group('二值化：长游程线宽保护', () {
-    test('长度 ≥8 的浅灰游程被整段救回，游程外不受影响', () {
+    test('长度 ≥kStructureRunLength 的浅灰游程被整段救回，游程外不受影响', () {
       final RawCapture cap = grayCapture(oneRow(20, value: 180, start: 2, end: 12));
       final List<List<bool>> protectedBlack = binarize(cap, protectStructureLines: true);
 
@@ -81,14 +82,20 @@ void main() {
       expect(protectedBlack.single[19], isFalse);
     });
 
-    test('长度 <8 的浅灰游程不救回（避免糊字）', () {
-      final RawCapture cap = grayCapture(oneRow(20, value: 180, start: 2, end: 9));
+    test('长度不足 kStructureRunLength 的浅灰游程不救回（避免糊字）', () {
+      final int shortRun = kStructureRunLength - 1;
+      final RawCapture cap =
+          grayCapture(oneRow(20, value: 180, start: 2, end: 2 + shortRun));
       expect(countDark(binarize(cap, protectStructureLines: true)), 0);
     });
 
-    test('长度恰为 8 是边界，应被救回', () {
-      final RawCapture cap = grayCapture(oneRow(20, value: 180, start: 2, end: 10));
-      expect(countDark(binarize(cap, protectStructureLines: true)), 8);
+    test('长度恰为 kStructureRunLength 是边界，应被救回', () {
+      final RawCapture cap = grayCapture(
+          oneRow(20, value: 180, start: 2, end: 2 + kStructureRunLength));
+      expect(
+        countDark(binarize(cap, protectStructureLines: true)),
+        kStructureRunLength,
+      );
     });
 
     test('宽松阈值 210：209 入选，210 及以上不入选', () {
@@ -132,6 +139,45 @@ void main() {
       expect(black.single[7], isFalse, reason: '左边缘过短，不应被救回');
       expect(black.single[37], isTrue);
       expect(black.single[38], isFalse);
+    });
+  });
+
+  group('二值化：亚点笔画提升', () {
+    test('窄灰带墨量够时被提升成 1 点宽的实线', () {
+      // 灰度 160 比严格阈值浅，只靠阈值一个黑点都没有。
+      final RawCapture cap = grayCapture(oneRow(20, value: 160, start: 5, end: 7));
+      expect(countDark(binarize(cap)), 0, reason: '未开提升时不该有黑点');
+
+      final List<List<bool>> promoted =
+          binarize(cap, promoteSubDotStrokes: true);
+      expect(countDark(promoted), 1, reason: '只提升成 1 点，不整段涂黑');
+      expect(longestDarkRun(promoted), 1);
+    });
+
+    test('游程超过 kPromoteMaxRunLength 的灰带不提升（交给长游程保护那条路）', () {
+      final RawCapture cap = grayCapture(
+          oneRow(20, value: 160, start: 5, end: 5 + kPromoteMaxRunLength + 1));
+      expect(countDark(binarize(cap, promoteSubDotStrokes: true)), 0);
+    });
+
+    test('墨量不足 kPromoteMinMass 的浅灰点不提升，避免把噪声变黑点', () {
+      // 灰度 205 的 1 点墨量 0.196，低于 0.28。
+      final RawCapture cap = grayCapture(oneRow(20, value: 205, start: 5, end: 6));
+      expect(countDark(binarize(cap, promoteSubDotStrokes: true)), 0);
+    });
+
+    test('提升落在游程里最深的那一个像素上', () {
+      final List<int> row = List<int>.filled(20, 255);
+      row[5] = 205;
+      row[6] = 170; // 更深，应被选中
+      final List<List<bool>> promoted = binarize(
+        grayCapture(<List<int>>[row]),
+        promoteSubDotStrokes: true,
+      );
+
+      expect(promoted.single[6], isTrue);
+      expect(promoted.single[5], isFalse);
+      expect(countDark(promoted), 1);
     });
   });
 

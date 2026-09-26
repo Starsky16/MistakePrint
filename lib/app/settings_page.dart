@@ -97,14 +97,14 @@ class SettingsPage extends StatelessWidget {
   static String _presetExplanation(ThinLinePreset? preset) {
     switch (preset) {
       case ThinLinePreset.off:
-        return '不做结构线保护：整张图最干净，但分数线的横线可能被二值化抹掉。';
+        return '只做阈值判定：整张图最干净，但分数线可能被二值化抹掉、发丝笔画会断。';
       case ThinLinePreset.standard:
-        return '严格阈值 + 长水平游程保护：救回被抗锯齿抹掉的分数线，'
-            '全图墨量约 +4%（出厂默认）。';
+        return '严格阈值 $kStrictThreshold + 长水平游程保护 + 亚点笔画提升：'
+            '分数线的横线与不完全占满一个点的细竖画都会被还原成 1 点宽的实线'
+            '（出厂默认）。';
       case ThinLinePreset.aggressive:
-        return '再把严格阈值抬到 $kAggressiveThreshold：连细竖画一起救回'
-            '（如 \$\\frac{x}{2}+\\frac{1}{x}\$ 的加号），代价是全图墨量约 +29%，'
-            '小字内白可能糊。';
+        return '再把严格阈值抬到 $kAggressiveThreshold：墨更重，'
+            '细线更实，代价是小字的内白可能糊在一起。';
       case null:
         return '当前参数由开发者模式自定义，不属于任何一个档位。';
     }

@@ -35,8 +35,9 @@ const double kThresholdSampleFontSize = 18;
 
 /// 细线与阈值对照用的样例公式。
 ///
-/// 选它是因为 `+` 的竖画与两条分数线恰好覆盖两种最脆弱的笔画：竖画（水平游程仅
-/// 2 点，长游程保护救不回来，见 `binarize.dart`）与长横画（易被抗锯齿抹成灰）。
+/// 选它是因为 `+` 的竖画与两条分数线恰好覆盖两种最脆弱的笔画：竖画（覆盖率不到
+/// 一个点，靠亚点笔画提升还原成 1 点宽实线，见 `binarize.dart`）与长横画
+/// （易被抗锯齿抹成灰，靠长游程保护救回）。
 const String kThinLineSample = r'$\frac{x}{2}+\frac{1}{x}$';
 
 /// 字号阶梯的两行样例。
@@ -181,6 +182,7 @@ class CalibrationStripRenderer {
       protectStructureLines: profile.protectStructureLines,
       strictThreshold: profile.threshold,
       structureRunLength: profile.structureRunLength,
+      promoteSubDotStrokes: profile.promoteSubDotStrokes,
     );
     watch.stop();
     return CalibrationStripImage(
@@ -255,6 +257,7 @@ List<List<bool>> _binarizeWithPreset(RawCapture gray, ThinLinePreset preset) {
     protectStructureLines: params.protectStructureLines,
     strictThreshold: params.threshold,
     structureRunLength: params.structureRunLength,
+    promoteSubDotStrokes: params.promoteSubDotStrokes,
   );
 }
 

@@ -29,13 +29,14 @@ void main() {
     for (final ThinLinePreset preset in ThinLinePreset.values) {
       final ThinLinePresetParams p = kThinLinePresetTable[preset]!;
       signatures.add(
-        '${p.threshold}|${p.protectStructureLines}|${p.structureRunLength}',
+        '${p.threshold}|${p.protectStructureLines}|${p.structureRunLength}'
+        '|${p.promoteSubDotStrokes}',
       );
     }
     expect(signatures.length, ThinLinePreset.values.length);
   });
 
-  test('关闭档不保护结构线，标准档保护，激进档同时抬高严格阈值', () {
+  test('关闭档既不保护结构线也不做提升，标准档两项都做，激进档再抬严格阈值', () {
     final ThinLinePresetParams off = kThinLinePresetTable[ThinLinePreset.off]!;
     final ThinLinePresetParams standard =
         kThinLinePresetTable[ThinLinePreset.standard]!;
@@ -43,13 +44,16 @@ void main() {
         kThinLinePresetTable[ThinLinePreset.aggressive]!;
 
     expect(off.protectStructureLines, isFalse);
+    expect(off.promoteSubDotStrokes, isFalse);
     expect(off.threshold, kStrictThreshold);
 
     expect(standard.protectStructureLines, isTrue);
+    expect(standard.promoteSubDotStrokes, isTrue);
     expect(standard.threshold, kStrictThreshold);
 
     // 激进档救的是灰度 164 的细竖画（计划 §5.3），阈值必须过 164。
     expect(aggressive.protectStructureLines, isTrue);
+    expect(aggressive.promoteSubDotStrokes, isTrue);
     expect(aggressive.threshold, kAggressiveThreshold);
     expect(aggressive.threshold, greaterThan(164));
   });
@@ -70,6 +74,7 @@ void main() {
         applyThinLinePreset(base, ThinLinePreset.aggressive);
 
     expect(applied.threshold, kAggressiveThreshold);
+    expect(applied.promoteSubDotStrokes, isTrue);
     expect(applied.id, base.id);
     expect(applied.name, base.name);
     expect(applied.printableDotsWidth, 372);
@@ -80,7 +85,7 @@ void main() {
     expect(applied.oversizeStrategy, base.oversizeStrategy);
   });
 
-  test('开发者改过裸参数后反查为 null（界面显示「自定义」）', () {
+  test('开发者改过裸参数后反查为 null（界面显示「自定义」），改回一整档仍能认出', () {
     expect(
       detectThinLinePreset(kPaperangP1Default.copyWith(threshold: 200)),
       isNull,
@@ -95,8 +100,18 @@ void main() {
       detectThinLinePreset(
         kPaperangP1Default.copyWith(protectStructureLines: false),
       ),
+      isNull,
+      reason: '只关保护、仍开着提升，不属于任何档位（关闭档两项都不做）',
+    );
+    expect(
+      detectThinLinePreset(
+        kPaperangP1Default.copyWith(
+          protectStructureLines: false,
+          promoteSubDotStrokes: false,
+        ),
+      ),
       ThinLinePreset.off,
-      reason: '只关保护正好落回「关闭」档，应当被认出来',
+      reason: '保护与提升都关掉正好落回「关闭」档，应当被认出来',
     );
   });
 }

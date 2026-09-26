@@ -12,7 +12,11 @@ const int kCalibrationStripWidth = 384;
 const List<int> kWidthCandidates = <int>[384, 378, 372, 366, 360];
 
 /// 阈值候选：校准条上「阈值并列区」并排的四档，同时也是用户能选的答案。
-const List<int> kThresholdCandidates = <int>[110, 128, 150, 170];
+///
+/// 窗口取自 v0.1.0 实机结论（128 那两档在纸上「字都没了」）与 v0.1.1 的超采样改动：
+/// 超采样把覆盖率还原准了之后，可用区间整体上移到 150 附近，因此候选改成
+/// 140~170，不再保留 110 / 128 这类已知打不出来的档位。
+const List<int> kThresholdCandidates = <int>[140, 150, 160, 170];
 
 /// 灰阶诊断项的候选答案（能分辨出几档）。
 const List<int> kGrayLevelCandidates = <int>[2, 4, 6, 8, 10];
@@ -147,6 +151,11 @@ List<String> describeProfileDiff(PaperProfile from, PaperProfile to) {
     '结构线保护',
     from.protectStructureLines ? '开' : '关',
     to.protectStructureLines ? '开' : '关',
+  );
+  add(
+    '亚点笔画提升',
+    from.promoteSubDotStrokes ? '开' : '关',
+    to.promoteSubDotStrokes ? '开' : '关',
   );
   add('写入 pHYs', from.writePhys ? '是' : '否', to.writePhys ? '是' : '否');
   add('已校准', from.isCalibrated ? '是' : '否', to.isCalibrated ? '是' : '否');

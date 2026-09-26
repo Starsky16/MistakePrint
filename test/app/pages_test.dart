@@ -256,7 +256,8 @@ void main() {
 
     expect(c.thinLinePreset, ThinLinePreset.off);
     expect(c.profile.protectStructureLines, isFalse);
-    expect(find.textContaining('不做结构线保护'), findsOneWidget);
+    expect(c.profile.promoteSubDotStrokes, isFalse);
+    expect(find.textContaining('只做阈值判定'), findsOneWidget);
   });
 
   testWidgets('设置页有打印校准入口，点进去是校准向导', (WidgetTester tester) async {

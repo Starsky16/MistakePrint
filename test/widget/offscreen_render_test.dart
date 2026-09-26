@@ -12,6 +12,7 @@ import 'package:mistake_print/profiles/paper_profile.dart';
 import 'package:mistake_print/render/document_view.dart';
 import 'package:mistake_print/render/offscreen/offscreen_canvas.dart';
 import 'package:mistake_print/render/offscreen/print_renderer.dart';
+import 'package:mistake_print/render/raster/downsample.dart';
 import 'package:mistake_print/render/raster/raw_capture.dart';
 
 import '../support/png_file.dart';
@@ -61,11 +62,23 @@ void main() {
     debugPrint('[离屏] 画面 ${shot.raw.width}x${shot.raw.height}，'
         '排版 ${shot.layoutPasses} 轮');
 
-    // 宽度精确是硬指标：紧约束 → ceil(384.0 × 1.0) = 384。
+    // 宽度精确是硬指标：紧约束 + 超采样后再降采样，回到 384 点。
     expect(shot.raw.width, kPaperangP1Default.printableDotsWidth);
 
-    final RawCapture visible =
-        await renderCapture(tester, renderDocument(kSample, kPaperangP1Default));
+    // 离屏管线内部按 S× 超采样 + 盒式降采样（计划 §5.4a），所以可见树侧要复现同一条
+    // 路径才谈得上逐像素比对：同样以 pixelRatio = S 捕获，再过同一个降采样核。
+    final int factor = supersampleFactor(
+      widthDots: kPaperangP1Default.printableDotsWidth,
+      heightDots: shot.raw.height,
+    );
+    final RawCapture visible = boxDownsample(
+      await renderCapture(
+        tester,
+        renderDocument(kSample, kPaperangP1Default),
+        pixelRatio: factor.toDouble(),
+      ),
+      factor,
+    );
     expect(shot.raw.height, visible.height, reason: '离屏与可见树的内容高度应一致');
     expect(
       listEquals(shot.raw.rgba, visible.rgba),

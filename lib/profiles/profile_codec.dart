@@ -24,6 +24,7 @@ String encodeProfileJson(PaperProfile profile) => jsonEncode(<String, Object?>{
       'threshold': profile.threshold,
       'protectStructureLines': profile.protectStructureLines,
       'structureRunLength': profile.structureRunLength,
+      'promoteSubDotStrokes': profile.promoteSubDotStrokes,
       'minLineWidthPx': profile.minLineWidthPx,
       'writePhys': profile.writePhys,
       'oversizeStrategy': profile.oversizeStrategy.name,
@@ -65,6 +66,10 @@ PaperProfile? decodeProfileJson(String source) {
     ),
     structureRunLength:
         _int(raw['structureRunLength'], fallback.structureRunLength),
+    promoteSubDotStrokes: _bool(
+      raw['promoteSubDotStrokes'],
+      fallback.promoteSubDotStrokes,
+    ),
     minLineWidthPx: _int(raw['minLineWidthPx'], fallback.minLineWidthPx),
     writePhys: _bool(raw['writePhys'], fallback.writePhys),
     oversizeStrategy: _oversizeStrategy(raw['oversizeStrategy'], fallback),

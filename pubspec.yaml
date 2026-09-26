@@ -2,7 +2,7 @@ name: mistake_print
 description: "把含 LaTeX 的错题题干渲染成热敏打印机 1-bit 位图的 Android 应用。"
 publish_to: 'none'
 
-version: 0.1.0+1
+version: 0.1.1+2
 
 environment:
   sdk: ^3.13.3

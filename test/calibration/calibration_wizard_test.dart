@@ -78,12 +78,13 @@ void main() {
         base,
         const CalibrationAnswers(
           thinLinePreset: ThinLinePreset.standard,
-          threshold: 150,
+          threshold: 160,
         ),
       );
 
-      expect(out.threshold, 150, reason: '阈值项覆盖档位展开出来的 128');
+      expect(out.threshold, 160, reason: '阈值项覆盖档位展开出来的 $kStrictThreshold');
       expect(out.protectStructureLines, isTrue, reason: '档位展开的保护不能被阈值项改掉');
+      expect(out.promoteSubDotStrokes, isTrue, reason: '提升同理，也不该被阈值项改掉');
       expect(
         out.structureRunLength,
         kThinLinePresetTable[ThinLinePreset.standard]!.structureRunLength,
@@ -102,6 +103,8 @@ void main() {
 
         expect(out.threshold, expected.threshold, reason: '$preset');
         expect(out.protectStructureLines, expected.protectStructureLines,
+            reason: '$preset');
+        expect(out.promoteSubDotStrokes, expected.promoteSubDotStrokes,
             reason: '$preset');
         expect(detectThinLinePreset(out), preset, reason: '$preset');
       }
@@ -156,7 +159,7 @@ void main() {
       expect(diff, contains('有效宽度：384 → 372'));
       expect(diff, contains('最小可读字号：20 → 18'));
       expect(diff, contains('正文字号：20 → 18'));
-      expect(diff, contains('严格阈值：128 → $kAggressiveThreshold'));
+      expect(diff, contains('严格阈值：$kStrictThreshold → $kAggressiveThreshold'));
       expect(diff, contains('已校准：否 → 是'));
       expect(
         diff.any((String line) => line.contains('写入 pHYs')),
