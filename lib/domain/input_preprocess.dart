@@ -177,28 +177,48 @@ class _Protector {
   final String _input;
   final List<String> _spans = <String>[];
 
+  /// 与 [_spans] 一一对应：该片段还原时要不要把 `$…$` 改写成 `\(…\)`。
+  final List<bool> _rewriteInline = <bool>[];
+
   int get count => _spans.length;
 
-  /// 定界符对：`(开始, 结束)`，长的排在前面（`$$` 先于 `$`）。
+  /// 定界符对：`(开始, 结束)`，长的排在前面。
+  ///
+  /// 单个 `$` 不在这里：它要过价格启发式，走 [_dollarSpan] 那条专门的路。
   static const List<(String, String)> _delimiters = <(String, String)>[
     (r'$$', r'$$'),
     (r'\[', r'\]'),
     (r'\(', r'\)'),
-    (r'$', r'$'),
   ];
 
   String guard() {
     final StringBuffer out = StringBuffer();
     int i = 0;
     while (i < _input.length) {
+      // `$…$` 单独处理：价格启发式会判错（见 [_dollarSpan]）。
+      if (_input[i] == r'$' && !_input.startsWith(r'$$', i)) {
+        final (int, bool)? pair = _dollarSpan(i);
+        if (pair != null) {
+          out.write(_push(
+            _input.substring(i, pair.$1 + 1),
+            rewriteInline: pair.$2,
+          ));
+          i = pair.$1 + 1;
+          continue;
+        }
+        // 判不出是一对公式（真价格、或没闭合）：原样吐出，
+        // 交给 tokenize() 的价格启发式与 lenient 分支。
+        out.write(r'$');
+        i++;
+        continue;
+      }
       final (String, String)? pair = _delimiterAt(i);
       if (pair != null) {
         final String open = pair.$1;
         final String close = pair.$2;
         final int end = _findClose(i + open.length, close);
         if (end >= 0) {
-          _spans.add(_input.substring(i, end + close.length));
-          out.write('$_guardOpen${_spans.length - 1}$_guardClose');
+          out.write(_push(_input.substring(i, end + close.length)));
           i = end + close.length;
           continue;
         }
@@ -219,32 +239,81 @@ class _Protector {
     return out.toString();
   }
 
+  /// 存一段占位原文，返回该片段对应的占位符。
+  ///
+  /// [rewriteInline] 为 true 时，还原阶段把它改写成 `\(…\)`。
+  String _push(String span, {bool rewriteInline = false}) {
+    _spans.add(span);
+    _rewriteInline.add(rewriteInline);
+    return '$_guardOpen${_spans.length - 1}$_guardClose';
+  }
+
   /// 判断 [i] 处是不是某个定界符的起点；长定界符优先（`$$` 先于 `$`）。
   (String, String)? _delimiterAt(int i) {
     for (final (String, String) pair in _delimiters) {
-      if (!_input.startsWith(pair.$1, i)) continue;
-      // 价格启发式与 tokenize() 保持一致：`$5` 里的 `$` 是钱不是公式。
-      if (pair.$1 == r'$' && _isLiteralDollar(i)) return null;
-      return pair;
+      if (_input.startsWith(pair.$1, i)) return pair;
     }
     return null;
   }
+
+  /// 拿 [start] 处的 `$` 向前找配对的 `$`。
+  ///
+  /// 返回 `(闭合下标, 要不要改写成 \(…\))`；判不出是公式就返回 null，把它留给
+  /// `tokenize()` 的价格启发式或 lenient 分支。
+  ///
+  /// 分两条路（计划 §5.1a）：
+  ///   - **不像价格**（`$x$`、`$a \neq 0$`）：走老路子——找到第一个非价格的 `$`
+  ///     就收，内容原样保留 `$…$`，交给 `tokenize()` 正常处理。
+  ///   - **像价格**（`$150^\circ$`、`$0 \in A$`）：`tokenize()` 会把开头的 `$` 当钱，
+  ///     于是这里的 `$` 只能自己判。若区间内容经 [_looksLikeMath] 判为数学，就保护
+  ///     起来并在还原时改写成 `\(…\)`——`\(…\)` 不过价格启发式。
+  ///     内容真像人话（`$5，另一个 $8`）就返回 null，维持「货币字面量」老行为。
+  (int, bool)? _dollarSpan(int start) {
+    final bool moneyish = _isLiteralDollar(start);
+    int i = start + 1;
+    while (i < _input.length) {
+      if (_input[i] == r'\' && i + 1 < _input.length) {
+        i += 2;
+        continue;
+      }
+      if (!_input.startsWith(r'$', i)) {
+        i++;
+        continue;
+      }
+      // 单个 `$` 不被 `$$` 的开头骗走。
+      if (_input.startsWith(r'$$', i)) {
+        i += 2;
+        continue;
+      }
+      if (!moneyish) {
+        // `$5` 这种价格不是闭合定界符，跳过。
+        if (_isLiteralDollar(i)) {
+          i += 2;
+          continue;
+        }
+        return (i, false);
+      }
+      return _looksLikeMath(_input.substring(start + 1, i)) ? (i, true) : null;
+    }
+    return null;
+  }
+
+  /// 区间内容像不像数学：不含人话（中日韩文字与全角标点），也不跨行。
+  ///
+  /// 判据刻意放宽到「没有汉字」这一条。`$8$` 这类单数字片段本身没有数学特征，
+  /// 但它的 `$` 落在像价格的位置上：不保护的话，这个落单的 `$` 会去跟后文某个
+  /// `$` 错配，把整段 token 结构带崩；`tokenize()` 也会把它当货币字面量，让热量
+  /// 纸上凭空印出两个 `$`。代价是英文里的 `$5 and $8` 可能被当公式——中文语料里
+  /// 可忽略，而 `$5，另一个 $8` 这类含全角标点的真价格依旧不会被误判。
+  bool _looksLikeMath(String s) =>
+      !s.contains('\n') && !_containsProse(s);
 
   /// 找配对的结束定界符；返回其起始下标，找不到返回 -1。
   int _findClose(int start, String close) {
     int i = start;
     while (i < _input.length) {
       // 结束定界符优先于转义判定：`\]` 自己就以反斜杠开头，先跳转义会把它整个漏掉。
-      if (_input.startsWith(close, i)) {
-        if (close == r'$') {
-          // 单个 `$` 既不能被 `$$` 的开头骗走，也不能被 `$5` 这种价格骗走。
-          if (_input.startsWith(r'$$', i) || _isLiteralDollar(i)) {
-            i += 2;
-            continue;
-          }
-        }
-        return i;
-      }
+      if (_input.startsWith(close, i)) return i;
       if (_input[i] == r'\' && i + 1 < _input.length) {
         i += 2;
         continue;
@@ -275,7 +344,13 @@ class _Protector {
     final RegExp pattern = RegExp('$_guardOpen([0-9]+)$_guardClose');
     return text.replaceAllMapped(
       pattern,
-      (Match match) => _spans[int.parse(match.group(1)!)],
+      (Match match) {
+        final int index = int.parse(match.group(1)!);
+        final String span = _spans[index];
+        if (!_rewriteInline[index]) return span;
+        // 被误判为价格的公式：脱掉 `$…$` 换成 `\(…\)`，绕开 tokenize 的价格启发式。
+        return '$_inlineOpen${span.substring(1, span.length - 1)}$_inlineClose';
+      },
     );
   }
 }

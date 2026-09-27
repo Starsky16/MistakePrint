@@ -55,6 +55,27 @@ void main() {
       expect(result.report.protectedSpans, 0);
       expect(result.text, r'价格 $5，另一个 $8');
     });
+
+    test(r'长得像价格的公式改写成 \(…\)，绕开价格启发式', () {
+      final PreprocessResult result =
+          preprocess(r'可得二面角为 $150^\circ$。', mode: OutputMode.fullText);
+
+      expect(result.report.protectedSpans, 1);
+      expect(result.text, r'可得二面角为 \(150^\circ\)。');
+    });
+
+    test(r'单数字的 `$8$` 不会与下一行的 `$` 错配', () {
+      final List<Token> tokens =
+          tokensOf('A. \$ab\$ 的最大值为 \$8\$\nB. \$2a + b\$ 的最小值为 \$8\$');
+      final String textChannel = tokens
+          .where((Token token) => !token.isMath)
+          .map((Token token) => token.value)
+          .join();
+
+      expect(textChannel, isNot(contains(r'$')),
+          reason: r'落单的 `$` 会被印到热敏纸上');
+      expect(tokens.where((Token token) => token.isMath).length, 4);
+    });
   });
 
   group('工序 1：行级清洗', () {
