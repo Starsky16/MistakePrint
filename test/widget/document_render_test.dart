@@ -3,6 +3,10 @@
 // 与标定图生成器一样属于开发期离线自检，产物写到仓库外的 D:\code\temp，不入库。
 // 注意事项见 test/calibration/generate_calibration_test.dart 顶部。
 
+// 打 offline tag：产物写到仓库外的 D:\code\temp，CI 里跳过，见 dart_test.yaml。
+@Tags(<String>['offline'])
+library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mistake_print/profiles/paper_profile.dart';

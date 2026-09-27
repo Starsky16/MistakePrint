@@ -1,0 +1,9 @@
+# package:test 的配置（`flutter test` 同样读这个文件）。
+#
+# `offline` = 开发期离线自检：产物写到仓库外的 D:\code\temp，输出目录写死为
+# Windows 绝对路径，在 Linux 上跑不通（会创建出带盘符的诡异目录）。因此 CI 用
+# `flutter test -x offline` 跳过这几个文件；本机 `flutter test` 不加参数，照旧全跑。
+#
+# 在这里声明 tag 是为了让 `-x offline` 不产生 "unknown tag" 警告。
+tags:
+  offline:

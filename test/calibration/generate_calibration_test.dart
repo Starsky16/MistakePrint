@@ -8,6 +8,11 @@
 // 2. 测试环境不会自动注册 pubspec 里声明的字体，必须用 FontLoader 手动加载，
 //    否则文本会退化成 Ahem 方块字体，标定图毫无意义。
 
+// 打 offline tag：产物写到仓库外的 D:\code\temp，CI（Linux）里跳过，见 dart_test.yaml。
+// 本机 `flutter test` 不加参数，仍会跑本文件。
+@Tags(<String>['offline'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mistake_print/calibration/calibration_figures.dart';

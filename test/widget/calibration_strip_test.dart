@@ -7,6 +7,10 @@
 //
 // 与其它出图测试一样属于开发期离线自检，产物写到仓库外的 D:\code\temp，不入库。
 
+// 打 offline tag：产物写到仓库外的 D:\code\temp，CI 里跳过，见 dart_test.yaml。
+@Tags(<String>['offline'])
+library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

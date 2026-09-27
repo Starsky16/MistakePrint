@@ -1,0 +1,121 @@
+name: Build & Release APKs
+
+# 手动触发：只构建并上传 Actions artifact，不建 Release（用于空跑验证构建与签名）。
+# 推送 v* 标签：构建、校验签名、发布 GitHub Release。
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+# 建 Release 需要写权限。
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build split APKs & release
+    runs-on: ubuntu-latest
+    env:
+      # 未配置签名 secrets 时为空字符串，后续「拒绝 debug 签名」一步会直接失败。
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # 与本机保持同一个 Flutter 版本（AGENTS.md 规定固定版本，不跟随 stable 漂移）。
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.4
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      # 从 secrets 还原签名材料。key.properties 这里写的是**字面量键**，而不是本机的
+      # 「路径键 + 读文件」写法；build.gradle.kts 的 keystoreSecret() 优先认字面量键，
+      # 因此 Kotlin 侧一行都不用改。
+      - name: Restore release keystore
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/mistake_print-release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/mistake_print-release.jks"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > key.properties
+          echo "已写入 android/key.properties（keystore: $RUNNER_TEMP/mistake_print-release.jks）"
+
+      # build.gradle.kts 在取不到 keystore 时会静默回落 debug 签名，那种包不该出现在
+      # 任何地方，所以这里直接失败而不是继续。
+      - name: Require release keystore
+        if: env.HAS_KEYSTORE != 'true'
+        run: |
+          echo "::error::未配置 ANDROID_KEYSTORE_BASE64 等 secrets，构建产物将回落 debug 签名，已中止。"
+          exit 1
+
+      # --split-per-abi：Flutter 会给每个 ABI 的 APK 加上 1000 × ABI 序号的 versionCode
+      # 偏移。**一旦分 ABI 发布就不能再回头发单个 APK**——单 APK 的 versionCode 更小，
+      # 已装分 ABI 版的手机无法覆盖安装，只能先卸载。
+      - name: Build split APKs
+        run: flutter build apk --release --split-per-abi
+
+      # 再核一遍签名身份。AGP 9 只签 v2/v3，keytool 读不到证书，只能用 apksigner。
+      - name: Verify APK signatures
+        run: |
+          APKSIGNER="$(ls -d "${ANDROID_SDK_ROOT:-$ANDROID_HOME}"/build-tools/* | sort -V | tail -1)/apksigner"
+          for apk in build/app/outputs/flutter-apk/app-*-release.apk; do
+            certs="$("$APKSIGNER" verify --print-certs "$apk")"
+            if echo "$certs" | grep -q "CN=Android Debug"; then
+              echo "::error::$apk 回落到了 debug 签名"
+              exit 1
+            fi
+            if ! echo "$certs" | grep -q "CN=MistakePrint"; then
+              echo "::error::$apk 的签名身份不含 CN=MistakePrint"
+              echo "$certs"
+              exit 1
+            fi
+            echo "$apk 签名核验通过"
+          done
+
+      - name: Rename APKs
+        run: |
+          cd build/app/outputs/flutter-apk
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            cp "app-$abi-release.apk" "mistake-print-${GITHUB_REF_NAME}-$abi.apk"
+          done
+          ls -l mistake-print-*.apk
+
+      - name: Upload artifacts (manual runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mistake-print-apks
+          path: build/app/outputs/flutter-apk/mistake-print-*.apk
+
+      # 发 v1.0.0 时把 --prerelease 去掉（0.x 阶段一律标预发布）。
+      - name: Publish GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME · MistakePrint" \
+            --prerelease \
+            --notes "自动构建于 GitHub Actions（Flutter 3.47.4，release 签名）。
+          按机型选一个安装：arm64-v8a（主流手机）/ armeabi-v7a（32 位老机型）/ x86_64（模拟器）。
+          三者 versionCode 因 ABI 偏移而不同，不能互相覆盖安装。" \
+            build/app/outputs/flutter-apk/mistake-print-*.apk

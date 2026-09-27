@@ -1,0 +1,51 @@
+name: CI
+
+# 检查工作流：只跑静态分析与单元/widget 测试，不构建 APK。
+# 构建与发布见 release-apk.yml。
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+# 最小权限：本工作流只读代码。
+permissions:
+  contents: read
+
+# 同一分支只保留最新一次运行，连续推送时省资源。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: flutter analyze & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # AGP 9 要求 JDK 17+，显式固定，不依赖 runner 默认 JDK。
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # 与本机保持同一个 Flutter 版本（AGENTS.md 规定固定版本，不跟随 stable 漂移）。
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.4
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze
+
+      # `-x offline` 跳过标了 offline tag 的开发期离线自检：那几个文件的产物目录
+      # 写死为 D:\code\temp，是 Windows 绝对路径，在 Linux 上跑不通。
+      # 本机 `flutter test` 不加参数，照旧全跑。
+      - name: Tests
+        run: flutter test -x offline

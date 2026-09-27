@@ -3,6 +3,10 @@
 // 与 P2 的出图测试一样属于开发期离线自检：产物写到仓库外的 D:\code\temp，不入库。
 // 「真机上的长图内存与分享链路」无法在这里验证，见计划 §6 的待验收清单。
 
+// 打 offline tag：产物写到仓库外的 D:\code\temp，CI 里跳过，见 dart_test.yaml。
+@Tags(<String>['offline'])
+library;
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
