@@ -28,6 +28,12 @@ const List<int> kGrayLevelCandidates = <int>[2, 4, 6, 8, 10];
 const double kBodyFontMinPx = 16;
 const double kBodyFontMaxPx = 24;
 
+/// 向导里「正文字号」一栏的候选（点）。
+///
+/// 取校准条图 B 字号阶梯（`calibration_figures.dart` 的 `kFontLadder`）中落在
+/// [kBodyFontMinPx] ~ [kBodyFontMaxPx] 的那几档，用户在同一张图上照着选即可。
+const List<double> kBodyFontCandidates = <double>[16, 18, 20, 22, 24];
+
 /// 「宽度异常判定」这一项的现象。
 ///
 /// 它和「有效宽度」靠同一条候选线同时判出来，不需要额外打印（计划 §5.8）。
@@ -58,6 +64,7 @@ class CalibrationAnswers {
     this.printableDotsWidth,
     this.widthEdge,
     this.minFontPx,
+    this.bodyFontPx,
     this.thinLinePreset,
     this.threshold,
     this.grayLevels,
@@ -70,6 +77,12 @@ class CalibrationAnswers {
 
   /// 用户选中的「最小的仍然看得清」的字号。
   final double? minFontPx;
+
+  /// 用户选中的正文字号（**与 [minFontPx] 各自独立**）。
+  ///
+  /// 二者是「读得清的下限」与「读起来舒服的档」，没有必然相等的关系：
+  /// 出厂档案就是 (14, 18)。
+  final double? bodyFontPx;
 
   /// 细线保真：用户选中的细线增强档位。
   final ThinLinePreset? thinLinePreset;
@@ -85,6 +98,7 @@ class CalibrationAnswers {
       printableDotsWidth != null ||
       widthEdge != null ||
       minFontPx != null ||
+      bodyFontPx != null ||
       thinLinePreset != null ||
       threshold != null;
 }
@@ -116,10 +130,11 @@ PaperProfile applyCalibration(PaperProfile base, CalibrationAnswers answers) {
     p = p.copyWith(writePhys: !p.writePhys);
   }
   if (answers.minFontPx != null) {
-    p = p.copyWith(
-      minFontPx: answers.minFontPx,
-      bodyFontPx: bodyFontFor(answers.minFontPx!),
-    );
+    // 只记下限，不动正文：正文字号由它自己那一项决定（跳过就保留档案原值）。
+    p = p.copyWith(minFontPx: answers.minFontPx);
+  }
+  if (answers.bodyFontPx != null) {
+    p = p.copyWith(bodyFontPx: resolveBodyFont(answers.bodyFontPx!, p.minFontPx));
   }
   // 「右边被切」的内缩量已经由「有效宽度」那一项承载（用户选中的线就是实际边界），
   // 这里不再猜一个量出来。
@@ -129,9 +144,15 @@ PaperProfile applyCalibration(PaperProfile base, CalibrationAnswers answers) {
   return p;
 }
 
-/// D4：正文按所选最小可读字号取，夹在 [kBodyFontMinPx] 与 [kBodyFontMaxPx] 之间。
-double bodyFontFor(double minFontPx) =>
-    minFontPx.clamp(kBodyFontMinPx, kBodyFontMaxPx).toDouble();
+/// D4：正文的落档规则，与设置页里同一条约束保持一致。
+///
+/// 1. 夹在 [kBodyFontMinPx] 与 [kBodyFontMaxPx] 之间；
+/// 2. 不得小于最小可读字号 [minFontPx]（下限优先，此时可以越过上限）。
+double resolveBodyFont(double picked, double minFontPx) {
+  final double clamped =
+      picked.clamp(kBodyFontMinPx, kBodyFontMaxPx).toDouble();
+  return clamped < minFontPx ? minFontPx : clamped;
+}
 
 /// 两份档案之间的差异，用于汇总预览。
 ///

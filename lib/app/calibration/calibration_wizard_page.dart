@@ -34,10 +34,11 @@ class CalibrationWizardPage extends StatefulWidget {
 }
 
 class _CalibrationWizardPageState extends State<CalibrationWizardPage> {
-  // 六项答案，null = 跳过。
+  // 七项答案，null = 跳过。
   int? _width;
   WidthEdgeAnswer? _edge;
   double? _minFontPx;
+  double? _bodyFontPx;
   ThinLinePreset? _thinLinePreset;
   int? _threshold;
   int? _grayLevels;
@@ -55,6 +56,7 @@ class _CalibrationWizardPageState extends State<CalibrationWizardPage> {
         printableDotsWidth: _width,
         widthEdge: _edge,
         minFontPx: _minFontPx,
+        bodyFontPx: _bodyFontPx,
         thinLinePreset: _thinLinePreset,
         threshold: _threshold,
         grayLevels: _grayLevels,
@@ -209,17 +211,29 @@ class _CalibrationWizardPageState extends State<CalibrationWizardPage> {
           _ChoiceTile<double>(
             id: 'font',
             title: '③ 最小可读字号',
-            hint: '最小的、仍然看得清的是哪一档？正文会按它取，夹在 '
-                '${kBodyFontMinPx.toInt()}~${kBodyFontMaxPx.toInt()} 点之间。',
+            hint: '最小的、仍然看得清的是哪一档？这一项只记下限，不改正文字号。',
             options: <(double, String)>[
               for (final double value in kFontLadder) (value, '${value.toInt()}'),
             ],
             value: _minFontPx,
             onChanged: (double? value) => setState(() => _minFontPx = value),
           ),
+          _ChoiceTile<double>(
+            id: 'body-font',
+            title: '④ 正文字号',
+            hint: '正文用哪一档读着最舒服？夹在 ${kBodyFontMinPx.toInt()}~'
+                '${kBodyFontMaxPx.toInt()} 点之间，且不会小于上面选的'
+                '最小可读字号。',
+            options: <(double, String)>[
+              for (final double value in kBodyFontCandidates)
+                (value, '${value.toInt()}'),
+            ],
+            value: _bodyFontPx,
+            onChanged: (double? value) => setState(() => _bodyFontPx = value),
+          ),
           _ChoiceTile<ThinLinePreset>(
             id: 'thin',
-            title: '④ 细线保真',
+            title: '⑤ 细线保真',
             hint: '哪一列的分数线是完整的一条？',
             options: <(ThinLinePreset, String)>[
               for (final ThinLinePreset value in ThinLinePreset.values)
@@ -231,7 +245,7 @@ class _CalibrationWizardPageState extends State<CalibrationWizardPage> {
           ),
           _ChoiceTile<int>(
             id: 'threshold',
-            title: '⑤ 阈值档位',
+            title: '⑥ 阈值档位',
             hint: '哪一档最清楚？它只覆盖严格阈值，不动上面选的细线档位里的其他参数。',
             options: <(int, String)>[
               for (final int value in kThresholdCandidates) (value, '$value'),
@@ -241,7 +255,7 @@ class _CalibrationWizardPageState extends State<CalibrationWizardPage> {
           ),
           _ChoiceTile<int>(
             id: 'gray',
-            title: '⑥ 灰阶（只作诊断）',
+            title: '⑦ 灰阶（只作诊断）',
             hint: '能分辨出几档？这一项不改任何参数。',
             options: <(int, String)>[
               for (final int value in kGrayLevelCandidates) (value, '$value'),

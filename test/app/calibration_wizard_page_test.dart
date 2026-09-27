@@ -1,7 +1,7 @@
 // P3-4b 校准向导页测试：只断言接线（出图交给注入的假实现，不跑离屏管线）。
 //
 // 两条硬要求在这里落地：
-// 1. 六项全都跳过时保存不改档案，且保存后照样能出图（计划 §5.8「不做强制引导」）；
+// 1. 七项全都跳过时保存不改档案，且保存后照样能出图（计划 §5.8「不做强制引导」）；
 // 2. 答过的项按 applyCalibration 的规则写回档案。
 
 import 'dart:io';
@@ -130,7 +130,7 @@ void main() {
     expect(find.text('再看一次'), findsOneWidget);
   });
 
-  testWidgets('六项全跳过：保存不改档案，且保存后照样能出图', (WidgetTester tester) async {
+  testWidgets('七项全跳过：保存不改档案，且保存后照样能出图', (WidgetTester tester) async {
     useTallSurface(tester);
     final ProfileController c = controller();
     await tester.pumpWidget(wrap(c, const CalibrationWizardPage()));
@@ -187,6 +187,34 @@ void main() {
     expect(c.profile.protectStructureLines, isTrue, reason: '激进档的保护不能被阈值项改掉');
     expect(c.profile.isCalibrated, isTrue);
     expect(c.thinLinePreset, isNull, reason: '阈值被单独改过，已不属于任何档位');
+  });
+
+  testWidgets('字号两项各管各的：最小可读字号不再把正文带跑', (WidgetTester tester) async {
+    useTallSurface(tester);
+    final ProfileController c = controller();
+    await tester.pumpWidget(wrap(c, const CalibrationWizardPage()));
+
+    // 旧逻辑下选 16 会把正文一起写成 16；现在正文由自己的那一项决定。
+    await tester.tap(chip('font', '16'));
+    await tester.pump();
+    await tester.tap(chip('body-font', '18'));
+    await tester.pump();
+
+    expect(
+      find.text('· 最小可读字号：${kPaperangP1Default.minFontPx.toInt()} → 16'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('· 正文字号'),
+      findsNothing,
+      reason: '正文没被最小可读字号改掉，本来就没变',
+    );
+
+    await tester.tap(find.text('保存到档案'));
+    await tester.pump();
+
+    expect(c.profile.minFontPx, 16);
+    expect(c.profile.bodyFontPx, 18, reason: '正文是独立一项选出来的');
   });
 
   testWidgets('灰阶只作诊断：说清不改参数，也不让档案变成已校准', (WidgetTester tester) async {

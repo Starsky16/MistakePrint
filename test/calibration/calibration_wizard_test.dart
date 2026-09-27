@@ -123,19 +123,51 @@ void main() {
   });
 
   group('字号', () {
+    test('只答最小可读字号：只记下限，正文保持档案原值', () {
+      final PaperProfile out =
+          applyCalibration(base, const CalibrationAnswers(minFontPx: 16));
+
+      expect(out.minFontPx, 16);
+      expect(out.bodyFontPx, base.bodyFontPx, reason: '正文由它自己那一项决定');
+      expect(out.isCalibrated, isTrue);
+    });
+
+    test('两项各自独立：(14, 18) 这种组合能一次产出', () {
+      final PaperProfile out = applyCalibration(
+        base,
+        const CalibrationAnswers(minFontPx: 14, bodyFontPx: 18),
+      );
+
+      expect(out.minFontPx, 14);
+      expect(out.bodyFontPx, 18);
+      expect(out.isCalibrated, isTrue);
+    });
+
     test('正文字号按 D4 夹在 16~24 之间', () {
-      expect(bodyFontFor(12), kBodyFontMinPx);
-      expect(bodyFontFor(20), 20);
-      expect(bodyFontFor(32), kBodyFontMaxPx);
+      expect(resolveBodyFont(12, 0), kBodyFontMinPx);
+      expect(resolveBodyFont(20, 0), 20);
+      expect(resolveBodyFont(32, 0), kBodyFontMaxPx);
 
       expect(
-        applyCalibration(base, const CalibrationAnswers(minFontPx: 12)).bodyFontPx,
+        applyCalibration(base, const CalibrationAnswers(bodyFontPx: 12)).bodyFontPx,
         kBodyFontMinPx,
       );
-      final PaperProfile mid =
-          applyCalibration(base, const CalibrationAnswers(minFontPx: 18));
-      expect(mid.minFontPx, 18, reason: '最小可读字号记原始答案，不被夹');
-      expect(mid.bodyFontPx, 18);
+      expect(
+        applyCalibration(base, const CalibrationAnswers(bodyFontPx: 30)).bodyFontPx,
+        kBodyFontMaxPx,
+      );
+    });
+
+    test('正文不得小于最小可读字号（与设置页同一条约束）', () {
+      expect(resolveBodyFont(18, 22), 22, reason: '下限更高时由下限兜住');
+      expect(resolveBodyFont(18, 14), 18, reason: '下限更低时按用户选的来');
+
+      final PaperProfile out = applyCalibration(
+        base,
+        const CalibrationAnswers(minFontPx: 22, bodyFontPx: 18),
+      );
+      expect(out.minFontPx, 22);
+      expect(out.bodyFontPx, 22);
     });
   });
 
@@ -150,6 +182,7 @@ void main() {
         const CalibrationAnswers(
           printableDotsWidth: 372,
           minFontPx: 20,
+          bodyFontPx: 20,
           thinLinePreset: ThinLinePreset.aggressive,
         ),
       );
@@ -174,6 +207,17 @@ void main() {
     test('宽度候选的第一个就是校准条的出图宽度', () {
       expect(kWidthCandidates.first, kCalibrationStripWidth);
       expect(kWidthCandidates, orderedEquals(<int>[384, 378, 372, 366, 360]));
+    });
+
+    test('正文字号候选升序、都在允许区间内，且包含出厂正文', () {
+      for (int i = 1; i < kBodyFontCandidates.length; i++) {
+        expect(kBodyFontCandidates[i], greaterThan(kBodyFontCandidates[i - 1]));
+      }
+      for (final double value in kBodyFontCandidates) {
+        expect(value, inInclusiveRange(kBodyFontMinPx, kBodyFontMaxPx));
+      }
+      expect(kBodyFontCandidates, contains(base.bodyFontPx),
+          reason: '出厂的正文档必须是可选之一，否则用户没法在向导里保持它');
     });
 
     test('阈值候选为升序且在 0~255 内', () {
