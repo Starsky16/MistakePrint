@@ -131,22 +131,20 @@ class PaperProfile {
       );
 }
 
-/// 喵喵机 P1 的保守默认档案。
-///
-/// 零标定路线（Q13）下这些值不会在开发期被实机验证，一律取「不会更差」的一侧
-/// （计划 §2.3），并保证都能被校准向导改掉。
+/// 喵喵机 P1 的出厂默认档案。
 ///
 /// 二值化相关的四项（`threshold` / `protectStructureLines` / `structureRunLength` /
-/// `promoteSubDotStrokes`）取自「标准」档，它们的取值依据是 **v0.1.0 实机结论**
-/// 与 T1 离线量测，不再是开发期的猜测（计划 §5.4a）。
+/// `promoteSubDotStrokes`）取自「标准」档，依据是 **v0.1.0 实机结论**与 T1 离线量测；
+/// 字号两项（`minFontPx` / `bodyFontPx`）依据 **v0.1.1 校准条实机结论**（2026-09-27）：
+/// 最小可读字号 14、正文 18。全部字段都能被校准向导改掉（计划 §5.4a、§2.3）。
 const PaperProfile kPaperangP1Default = PaperProfile(
   id: 'paperang-p1',
   name: '作业帮喵喵机 P1（默认值，未校准）',
   dpi: 203,
   paperWidthMm: 57,
   printableDotsWidth: 384,
-  minFontPx: 20,
-  bodyFontPx: 20,
+  minFontPx: 14,
+  bodyFontPx: 18,
   mathFontPx: 24,
   lineHeight: 1.3,
   threshold: kStrictThreshold,

@@ -149,16 +149,17 @@ void main() {
         base,
         const CalibrationAnswers(
           printableDotsWidth: 372,
-          minFontPx: 18,
+          minFontPx: 20,
           thinLinePreset: ThinLinePreset.aggressive,
         ),
       );
 
       final List<String> diff = describeProfileDiff(base, out);
 
-      expect(diff, contains('有效宽度：384 → 372'));
-      expect(diff, contains('最小可读字号：20 → 18'));
-      expect(diff, contains('正文字号：20 → 18'));
+      // 「改前」一侧都按出厂档案的现值拼，避免默认值一改这条就红。
+      expect(diff, contains('有效宽度：${base.printableDotsWidth} → 372'));
+      expect(diff, contains('最小可读字号：${base.minFontPx.toInt()} → 20'));
+      expect(diff, contains('正文字号：${base.bodyFontPx.toInt()} → 20'));
       expect(diff, contains('严格阈值：$kStrictThreshold → $kAggressiveThreshold'));
       expect(diff, contains('已校准：否 → 是'));
       expect(
