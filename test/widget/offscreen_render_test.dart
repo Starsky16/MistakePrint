@@ -35,6 +35,31 @@ $$\frac{a+b}{2}\geq\sqrt{ab}$$
 const String kOversize =
     r'$$a_{1}+a_{2}+a_{3}+a_{4}+a_{5}+a_{6}+a_{7}+a_{8}+a_{9}+a_{10}+a_{11}+a_{12}+a_{13}+a_{14}=S$$';
 
+/// 一道完整的错题（题干 + 三步解答，约 360 字、20 个公式），量「单题出图」耗时用。
+const String kFullSolution = r'''
+错题 3：已知函数 $f(x)=\log_2(x^2-2x-3)$，求 $f(x)$ 的单调递增区间。
+
+解：
+
+第一步：确定定义域
+
+由 $x^2-2x-3>0$ 得 $(x-3)(x+1)>0$，所以 $x<-1$ 或 $x>3$。
+
+第二步：分解复合函数
+
+令 $u=x^2-2x-3$，则 $f(x)=\log_2 u$。
+
+因为 $y=\log_2 u$ 在 $(0,+\infty)$ 上单调递增，所以 $f(x)$ 的单调性与 $u$ 一致。
+
+第三步：求 $u$ 的单调区间
+
+$u=x^2-2x-3$ 的对称轴为 $x=1$，开口向上。
+
+所以 $u$ 在 $(-\infty,-1)$ 上单调递减，在 $(3,+\infty)$ 上单调递增。
+
+答：$f(x)$ 的单调递增区间是 $(3,+\infty)$。
+''';
+
 /// 合成一份约 3000 点高的长内容（每行 20 点正文 × 1.3 行高 ≈ 26 点）。
 String longText({int lines = 120}) {
   const String body = r'已知 $f(x)=x^2+2x+1$，求 $\frac{x}{2}+\frac{1}{x}$ 的最小值。';
@@ -160,6 +185,39 @@ void main() {
     expect(image.width, kPaperangP1Default.printableDotsWidth);
     // 只是内存失控的代理指标，不代表真机表现（真机项见计划 §6）。
     expect(rssDelta, lessThan(256 * 1024 * 1024), reason: '长图不应出现数量级的内存膨胀');
+  });
+
+  testWidgets('单题出图耗时在 3s 以内', (WidgetTester tester) async {
+    late PrintImage image;
+    await tester.runAsync(() async {
+      image =
+          await const PrintRenderer().render(kFullSolution, kPaperangP1Default);
+    });
+    debugPrint('[离屏] 单题出图 ${image.width}x${image.height} '
+        '耗时 ${image.elapsed.inMilliseconds}ms 排版 ${image.layoutPasses} 轮');
+
+    // 计划 §4 P5 的目标是「中端机 < 3s」。这里跑的是 debug JIT，数字只作守卫用：
+    // 真机是 AOT，两者不可直接换算（同 §1.5 的告诫），真机数字要等 §3.1 v0.3.0
+    // 那一步的实机结论回填。守卫线的意义是抓灾难性回退——当前实测约 0.2~0.6s，
+    // 留了 5 倍以上余量。
+    expect(image.elapsed, lessThan(const Duration(seconds: 3)));
+  });
+
+  testWidgets('超过字符上限的输入在排版之前就被拒绝', (WidgetTester tester) async {
+    final String huge = List<String>.filled(kMaxInputChars + 1, 'a').join();
+
+    await tester.runAsync(() async {
+      await expectLater(
+        const PrintRenderer().render(huge, kPaperangP1Default),
+        throwsA(
+          isA<OffscreenRenderException>().having(
+            (OffscreenRenderException e) => e.message,
+            'message',
+            contains('$kMaxInputChars'),
+          ),
+        ),
+      );
+    });
   });
 
   testWidgets('每个 job 恰好释放一次 ui.Image', (WidgetTester tester) async {

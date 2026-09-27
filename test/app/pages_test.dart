@@ -174,6 +174,26 @@ void main() {
       expect(find.textContaining('识别到 1 处公式'), findsOneWidget);
     });
 
+    testWidgets('未闭合公式按纯文本降级，并把告警带到预览页', (WidgetTester tester) async {
+      final FakeRenderer renderer = FakeRenderer(sampleImage());
+      await tester.pumpWidget(wrap(
+        controller(),
+        InputPage(
+          renderer: renderer,
+          prefsStore: AppPrefsStore(rootProvider: () async => tempRoot),
+        ),
+      ));
+
+      // 少一个 `$`：分词器 lenient 分支把整段当纯文本（不抛异常），但必须告诉用户。
+      await tester.enterText(find.byType(TextField), r'求 $\frac{1}{2} 的值');
+      await tester.pump();
+      await tester.tap(find.text('生成图片'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('预览'), findsOneWidget);
+      expect(find.textContaining('未闭合的公式定界符'), findsOneWidget);
+    });
+
     testWidgets('输出模式写回偏好，并真的用在裁剪上', (WidgetTester tester) async {
       final FakePrefsStore store = FakePrefsStore();
       final FakeRenderer renderer = FakeRenderer(sampleImage());

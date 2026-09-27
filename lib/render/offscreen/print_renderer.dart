@@ -10,6 +10,14 @@ import 'offscreen_canvas.dart';
 /// 出图进度回调：总进度比例（0..1）+ 阶段说明。
 typedef RenderProgressCallback = void Function(double progress, String stage);
 
+/// 单次出图的输入字符数上限。
+///
+/// 依据 [kMaxOutputHeightDots] 反推：纯文字一行约 23 点（18 点正文 × 1.3 行高），
+/// 1.2 万点的长图上限约合 500 行、每行 20 余字，也就是 1.1 万字上下。再长的输入
+/// 必然撞上那条高度上限，这里只是把「撞墙」提前到排版之前：省掉几秒的干等，并给出
+/// 一句能照做的提示（计划 §5.7）。
+const int kMaxInputChars = 12000;
+
 /// 一次出图的结果。
 class PrintImage {
   const PrintImage({
@@ -55,6 +63,13 @@ class PrintRenderer {
     PaperProfile profile, {
     RenderProgressCallback? onProgress,
   }) async {
+    // 超长输入先拒绝：排版与光栅化都要按内容规模付代价，越早停越省。
+    if (text.length > kMaxInputChars) {
+      throw OffscreenRenderException(
+        '输入 ${text.length} 字，超过单次上限 $kMaxInputChars 字，请拆成多道题再打印',
+      );
+    }
+
     final Stopwatch watch = Stopwatch()..start();
     onProgress?.call(0.05, '准备');
 

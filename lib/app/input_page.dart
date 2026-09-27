@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../domain/input_preprocess.dart';
+import '../domain/token.dart';
+import '../domain/tokenizer.dart';
 import '../profiles/paper_profile.dart';
 import '../render/offscreen/offscreen_canvas.dart';
 import '../render/offscreen/print_renderer.dart';
@@ -110,6 +112,13 @@ class _InputPageState extends State<InputPage> {
     final PaperProfile profile = ProfileScope.of(context).profile;
     // 预处理层是「粘贴原文」与「分词器」之间唯一的一道转换，出图前先过它。
     final PreprocessResult prepared = preprocess(text, mode: _prefs.outputMode);
+    // 分词器对未闭合定界符走 lenient 降级（整段当纯文本），告警不能只躺在 Token 里：
+    // 它要跟预处理小结一起进预览页，用户才知道「这段为什么没排成公式」（计划 §5.7）。
+    final List<String> notices = <String>[
+      ...prepared.report.notices,
+      for (final Token token in tokenize(prepared.text))
+        if (token.warning != null) token.warning!,
+    ];
     setState(() {
       _rendering = true;
       _error = null;
@@ -135,7 +144,7 @@ class _InputPageState extends State<InputPage> {
         MaterialPageRoute<void>(
           builder: (BuildContext context) => PreviewPage(
             image: image,
-            notices: prepared.report.notices,
+            notices: notices,
           ),
         ),
       );
