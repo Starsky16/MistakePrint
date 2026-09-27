@@ -20,9 +20,9 @@ jobs:
       # 未配置签名 secrets 时为空字符串，后续「拒绝 debug 签名」一步会直接失败。
       HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -100,7 +100,7 @@ jobs:
 
       - name: Upload artifacts (manual runs)
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mistake-print-apks
           path: build/app/outputs/flutter-apk/mistake-print-*.apk
