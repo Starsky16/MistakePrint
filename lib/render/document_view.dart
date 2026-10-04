@@ -11,6 +11,19 @@ import 'text/text_styles.dart';
 /// 纸张底色（打印目标永远是白纸黑字）。
 const Color _paperWhite = Color(0xFFFFFFFF);
 
+/// 版式调试测量回调：一次上报一个**公式片段**（整段公式或断行后的第 i 段）的渲染宽度。
+///
+/// 公式片段是唯一可能突破目标宽度的一类内容（正文由 `softWrap` 折行约束住），
+/// 所以水平溢出的核心断言就落在它身上：`label` 说明是 `whole` 还是 `part i/N`，
+/// `oversize` 标记整段是否走过超宽路径，`degraded` 标记走到了整体缩放的兜底。
+typedef DocumentFormulaMeasure = void Function(
+  String tex,
+  String label,
+  double widthDots,
+  bool oversize,
+  bool degraded,
+);
+
 /// 库入口（计划 §5.6）：题干文本 + 机型档案 → 一份宽度精确等于
 /// `profile.printableDotsWidth` 的排版结果。
 Widget renderDocument(
@@ -36,11 +49,16 @@ class DocumentView extends StatefulWidget {
     required this.tokens,
     required this.profile,
     this.renderer = const FlutterMathRenderer(),
+    this.debugFormulaSink,
   });
 
   final List<Token> tokens;
   final PaperProfile profile;
   final MathRenderer renderer;
+
+  /// 非空时每个渲染出的公式片段都会上报一次宽度；生产路径恒为 null。
+  @visibleForTesting
+  final DocumentFormulaMeasure? debugFormulaSink;
 
   @override
   State<DocumentView> createState() => _DocumentViewState();
@@ -178,6 +196,13 @@ class _DocumentViewState extends State<DocumentView> {
     final bool needBreak = wholeWidth > maxWidth &&
         profile.oversizeStrategy == OversizeStrategy.lineBreak;
     if (!needBreak) {
+      _reportFormula(
+        tex,
+        label: 'whole',
+        width: wholeWidth,
+        oversize: wholeWidth > maxWidth,
+        degraded: wholeWidth > maxWidth,
+      );
       return <InlineSpan>[
         _mathSpan(whole, measuredWidth: wholeWidth, maxWidth: maxWidth),
       ];
@@ -210,9 +235,29 @@ class _DocumentViewState extends State<DocumentView> {
         spans.add(_placeholder);
         continue;
       }
+      _reportFormula(
+        tex,
+        label: 'part ${i + 1}/${broken.parts.length}',
+        width: width,
+        oversize: true,
+        degraded: width > maxWidth,
+      );
       spans.add(_mathSpan(part, measuredWidth: width, maxWidth: maxWidth));
     }
     return spans;
+  }
+
+  /// 上报一个公式片段的渲染宽度（仅当 [DocumentView.debugFormulaSink] 非空）。
+  void _reportFormula(
+    String tex, {
+    required String label,
+    required double width,
+    required bool oversize,
+    required bool degraded,
+  }) {
+    final DocumentFormulaMeasure? sink = widget.debugFormulaSink;
+    if (sink == null) return;
+    sink(tex, label, width, oversize, degraded);
   }
 
   InlineSpan _mathSpan(

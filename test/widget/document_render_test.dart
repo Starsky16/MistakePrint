@@ -7,6 +7,8 @@
 @Tags(<String>['offline'])
 library;
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mistake_print/profiles/paper_profile.dart';
@@ -39,6 +41,12 @@ const String kOversize =
     r'$$a_{1}+a_{2}+a_{3}+a_{4}+a_{5}+a_{6}+a_{7}+a_{8}+a_{9}+a_{10}+a_{11}+a_{12}+a_{13}+a_{14}=S$$';
 
 void main() {
+  // kOutDir 写死 Windows 路径；非 Windows 平台上反斜杠路径会被 Dart 当成相对
+  // 文件名，在仓库根生成垃圾目录（实测），因此直接早退跳过全部用例。
+  if (!Platform.isWindows) {
+    return;
+  }
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
