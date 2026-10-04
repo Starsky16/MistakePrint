@@ -9,9 +9,12 @@
 //    否则文本会退化成 Ahem 方块字体，标定图毫无意义。
 
 // 打 offline tag：产物写到仓库外的 D:\code\temp，CI（Linux）里跳过，见 dart_test.yaml。
-// 本机 `flutter test` 不加参数，仍会跑本文件。
+// 本机（Windows）`flutter test` 不加参数仍会跑本文件；非 Windows 平台 main() 直接早退
+// （见下方说明），所以 Linux 上全量 `flutter test` 也不会执行到任何用例。
 @Tags(<String>['offline'])
 library;
+
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +31,12 @@ import '../support/test_fonts.dart';
 const String kOutDir = r'D:\code\temp\calibration';
 
 void main() {
+  // kOutDir 写死 Windows 路径；非 Windows 平台上反斜杠路径会被 Dart 当成相对
+  // 文件名，在仓库根生成垃圾目录（实测），因此直接早退跳过全部用例。
+  if (!Platform.isWindows) {
+    return;
+  }
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {

@@ -74,6 +74,12 @@ String longText({int lines = 120}) {
 }
 
 void main() {
+  // kOutDir 写死 Windows 路径；非 Windows 平台上反斜杠路径会被 Dart 当成相对
+  // 文件名，在仓库根生成垃圾目录（实测），因此直接早退跳过全部用例。
+  if (!Platform.isWindows) {
+    return;
+  }
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
