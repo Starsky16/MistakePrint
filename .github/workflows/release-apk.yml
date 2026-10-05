@@ -105,7 +105,7 @@ jobs:
           name: mistake-print-apks
           path: build/app/outputs/flutter-apk/mistake-print-*.apk
 
-      # 发 v1.0.0 时把 --prerelease 去掉（0.x 阶段一律标预发布）。
+      # 1.0.0 起 Release 不再标预发布（0.x 阶段的 --prerelease 已按注释约定移除）。
       - name: Publish GitHub Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         env:
@@ -114,7 +114,6 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME · MistakePrint" \
-            --prerelease \
             --notes "自动构建于 GitHub Actions（Flutter 3.47.4，release 签名）。
           按机型选一个安装：arm64-v8a（主流手机）/ armeabi-v7a（32 位老机型）/ x86_64（模拟器）。
           三者 versionCode 因 ABI 偏移而不同，不能互相覆盖安装。" \
