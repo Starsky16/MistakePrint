@@ -50,6 +50,12 @@ const String kUnbreakableOversize =
     r'$\begin{cases} \vec{n} \cdot \vec{BC} = 0 \Rightarrow -x + \sqrt{3}y = 0 \Rightarrow x = \sqrt{3}y \\ '
     r'\vec{n} \cdot \vec{BD} = 0 \Rightarrow -2x - \sqrt{3}y + z = 0 \end{cases}$';
 
+/// 嵌套根号（验收 ⑥ / E4 回归）：`+` 全在 `\sqrt{…}` 内层，`texBreak` 只扫顶层
+/// 关系符/二元运算符，找不到任何断点 → 整段单段返回，必须落到整体缩放兜底。
+/// 自然宽约 427 点，超出 384。
+const String kNestedSqrtOversize =
+    r'$$\sqrt{2+\sqrt{2+\sqrt{2+\sqrt{2+\sqrt{2+\sqrt{2+\sqrt{2}}}}}}}$$';
+
 /// 造一份「正文很长、公式很多」的超宽压力样例。
 String wideText({int lines = 12}) {
   const String body =
@@ -176,6 +182,35 @@ void main() {
         m.fragments.where((f) => f.degraded).length,
         greaterThan(0),
         reason: '超宽片段应被标记为整体缩放兜底',
+      );
+    });
+
+    testWidgets('嵌套根号不可断行（E4 回归）：走整体缩放兜底，不静默裁切', (WidgetTester tester) async {
+      final DocumentMeasure m = await measureAtPrintableWidth(
+        tester,
+        kNestedSqrtOversize,
+        profile: kPaperangP1Default,
+      );
+      final double target = kPaperangP1Default.printableDotsWidth.toDouble();
+      final List<FormulaFragment> silent = m.silentOverflow(target, tolerance: kWidthToleranceDots);
+
+      debugPrint(
+        '[溢出] 嵌套根号 片段 ${m.fragments.length} 个：'
+        '${m.fragments.map((f) => '${f.label}=${f.widthDots.toStringAsFixed(1)} degraded=${f.degraded}').join(', ')}',
+      );
+
+      expect(m.widgetSize.width, target, reason: '渲染根宽度必须精确等于目标宽度');
+      expect(m.fragments, isNotEmpty, reason: '嵌套根号应产出可测量的公式片段');
+      expect(
+        m.fragments.every((f) => f.oversize),
+        isTrue,
+        reason: '整段自然宽约 427 点，应超过目标宽度 384',
+      );
+      expect(silent, isEmpty, reason: '不允许「既超宽又没标 degraded」的静默裁切');
+      expect(
+        m.fragments.every((f) => f.degraded),
+        isTrue,
+        reason: 'texBreak 在根号结构内无可断点，超宽片段应全部走 FittedBox 整体缩放兜底',
       );
     });
 

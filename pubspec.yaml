@@ -2,7 +2,7 @@ name: mistake_print
 description: "把含 LaTeX 的错题题干渲染成热敏打印机 1-bit 位图的 Android 应用。"
 publish_to: 'none'
 
-version: 0.1.1+2
+version: 0.4.0+3
 
 environment:
   sdk: ^3.13.3
@@ -13,6 +13,10 @@ dependencies:
 
   # 公式排版（自带 KaTeX 全套字体，离线可用）。已 16 个月未发版，锁定精确版本。
   flutter_math_fork: 0.7.4
+  # 内嵌矢量图（根号、箭头、花括号等被 flutter_math_fork 渲染成 SVG 路径）的加载与
+  # 预热。本来就是 flutter_math_fork 的传递依赖，这里显式声明并锁版：离屏管线要靠它
+  # 的公开 API（BytesLoader.loadBytes / SvgPicture.bytesLoader）在绘制前把加载落地。
+  flutter_svg: 2.3.0
   # 二值化后处理 + 1-bit PNG 编码。
   image: 4.9.1
   # 系统分享面板。

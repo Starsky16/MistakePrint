@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../layout/math_metrics.dart';
 import '../raster/downsample.dart';
@@ -56,8 +57,10 @@ class OffscreenCapture {
 ///
 /// 关键点：`PipelineOwner` 不传任何回调时 `requestVisualUpdate()` 是空操作，
 /// **永不排帧**，所以这里不能等帧。公式宽度改用
-/// [RenderMathMetricsProbe.reportNow] 在同一轮里同步取数，从挂树到取数全程不
-/// `await`，真实帧不可能插进来。
+/// [RenderMathMetricsProbe.reportNow] 在同一轮里同步取数，取宽度前后不 `await`，
+/// 真实帧不可能插进来。唯一的 `await` 是绘制前的内嵌矢量图预热
+/// （见 [_preloadVectorGraphics]）：它发生在取宽度之前，且离屏树挂在自定义的
+/// `BuildOwner` / `PipelineOwner` 上，真实帧不会重建它。
 ///
 /// 生命周期每个 job 一套、用完即毁：`RenderView.prepareInitialFrame()` 只能调一次，
 /// 因此不做复用。
@@ -116,6 +119,14 @@ class OffscreenCanvas {
         buildOwner.buildScope(element);
         pipelineOwner.flushLayout();
         pipelineOwner.flushCompositingBits();
+
+        // 首轮排版已把 SvgPicture 挂上树，此刻把内嵌矢量图解码落地再重建一次，
+        // 否则首帧会缺字形（见 [_preloadVectorGraphics]）。
+        if (layoutPasses == 0 && await _preloadVectorGraphics(element)) {
+          buildOwner.buildScope(element);
+          pipelineOwner.flushLayout();
+          pipelineOwner.flushCompositingBits();
+        }
 
         final RenderMathMetricsProbe? probe = _findProbe(renderView);
         if (probe == null) {
@@ -196,6 +207,36 @@ class OffscreenCanvas {
     } finally {
       _detach(element, buildOwner, pipelineOwner, renderView);
     }
+  }
+
+  /// 绘制前把树里的内嵌矢量图解码落地，返回树上是否有这类图。
+  ///
+  /// 根号、箭头、花括号这些符号（`flutter_math_fork` 的 `\sqrt` 等）不是字体字形，
+  /// 而是渲染成 SVG 路径后交给 flutter_svg 加载的，**加载是异步的**：release（AOT）
+  /// 下 SVG 编码走 `compute()`（真实 isolate），结果只能通过 `setState` 回到 widget；
+  /// 而未解码时它画的是 vector_graphics 的空白占位方盒（位置照占、内容全空）。
+  /// 本管线「排版 → 绘制 → toImage」全程同步、不排帧，首帧就必然只拿到那个空盒——
+  /// 这正是「首次生成根号不渲染、重试即恢复」的原因：重试时 flutter_svg 的全局
+  /// `svg.cache` 已命中 ByteData，加载退化成同步。
+  ///
+  /// 这里把树上每个 [SvgPicture] 的 loader 都 `await` 一遍再让调用方重建：同一个
+  /// cache key 的加载在 `svg.cache` 里共享同一个 Future，所以等到的就是 widget 自己
+  /// 那条链，不必重开一份；落地之后重建，首帧即与「重试帧」一致。
+  Future<bool> _preloadVectorGraphics(Element root) async {
+    final Map<BytesLoader, BuildContext> loaders = <BytesLoader, BuildContext>{};
+    void visit(Element node) {
+      final Widget widget = node.widget;
+      if (widget is SvgPicture) loaders[widget.bytesLoader] = node;
+      node.visitChildren(visit);
+    }
+
+    visit(root);
+    if (loaders.isEmpty) return false;
+    await Future.wait<void>(loaders.entries.map(
+      (MapEntry<BytesLoader, BuildContext> entry) =>
+          entry.key.loadBytes(entry.value),
+    ));
+    return true;
   }
 
   /// 离屏树的固定外壳。
