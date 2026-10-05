@@ -81,6 +81,17 @@ List<Token> tokenize(String input, {bool strict = false}) {
     if (ch == r'$') {
       // 价格启发式：`$` 后紧跟数字、且前一字符是空白或中日韩文字时视为字面量。
       if (_isLiteralDollar(input, i)) {
+        // 价格候选救援：像 `$2\sqrt{2}$`、`$1\neq 2$` 这种**数字开头**的真公式
+        // 开头也长得像价格。若能配到闭合 `$` 且其间内容带着明确的数学特征，
+        // 按公式配对，不当初价格；判据见 [_looksLikeMathSpan]。
+        final int rescued = _findClose(input, i + 1, r'$');
+        if (rescued >= 0 &&
+            _looksLikeMathSpan(input.substring(i + 1, rescued))) {
+          flush();
+          tokens.add(Token(TokenKind.inlineMath, input.substring(i + 1, rescued)));
+          i = rescued + 1;
+          continue;
+        }
         plain.write(ch);
         i++;
         continue;
@@ -143,6 +154,7 @@ int _findClose(String input, int start, String close) {
 ///
 /// 触发条件收紧为「`$` 后紧跟数字 且 前一字符是空白或中日韩文字」，
 /// 这样 `设 $x$ 为正数` 这类常见写法仍能正常进入公式通道。
+/// 命中后还有一道[_looksLikeMathSpan] 救援：内容明确是数学时仍按公式配对。
 bool _isLiteralDollar(String input, int i) {
   if (i + 1 >= input.length) return false;
   final int next = input.codeUnitAt(i + 1);
@@ -155,6 +167,50 @@ bool _isLiteralDollar(String input, int i) {
 bool _isWhitespace(String ch) {
   final int c = ch.codeUnitAt(0);
   return c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D || c == 0x0C;
+}
+
+/// 强运算符：与 `input_preprocess.dart` 的 `_strongOperators` 保持一致，
+/// 单独出现就足以说明「这是数学」。
+const String _strongOperators = '=<>±×÷≤≥≠≈∈∉∪∩⊂⊆→⇒⇔';
+
+/// 价格候选救援的判据：区间内容是否**明确**是数学。
+///
+/// 判据刻意从严：只认反斜杠命令、`^`/`_` 与强运算符；含中日韩/全角字符或
+/// 换行一律不算数学。这样「价格为 $5，另一个 $8」「$5 元」依旧按字面量，
+/// 只有 `$2\sqrt{2}$` 这类被价格启发式误伤的真公式会被救回。
+bool _looksLikeMathSpan(String s) {
+  if (s.isEmpty || s.contains('\n')) return false;
+  for (final int code in s.codeUnits) {
+    if ((code >= 0x2E80 && code <= 0x9FFF) ||
+        (code >= 0xF900 && code <= 0xFAFF) ||
+        (code >= 0xFF00 && code <= 0xFFEF)) {
+      return false;
+    }
+  }
+  return _hasCommand(s) ||
+      s.contains('^') ||
+      s.contains('_') ||
+      _hasStrongOperator(s);
+}
+
+/// 含反斜杠命令（`\frac` `\sin` `\pi` …），与 `input_preprocess.dart` 同名逻辑一致。
+bool _hasCommand(String s) {
+  for (int i = 0; i + 1 < s.length; i++) {
+    if (s[i] != r'\') continue;
+    final int next = s.codeUnitAt(i + 1);
+    if ((next >= 0x41 && next <= 0x5A) || (next >= 0x61 && next <= 0x7A)) {
+      return true;
+    }
+    i++;
+  }
+  return false;
+}
+
+bool _hasStrongOperator(String s) {
+  for (int i = 0; i < s.length; i++) {
+    if (_strongOperators.contains(s[i])) return true;
+  }
+  return false;
 }
 
 /// 中日韩文字与全角符号（含 CJK 标点、全角形式）。

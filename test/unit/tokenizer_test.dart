@@ -94,6 +94,30 @@ void main() {
     });
   });
 
+  group('分词：价格启发式不吞掉真公式（E5 回归）', () {
+    test(r'数字/\pi/\neq 等开头的行内公式全部进入公式通道', () {
+      final List<Token> tokens = tokenize(
+        r'比较 $\sqrt{8}$ 与 $2\sqrt{2}$ 的大小；已知 $\pi\approx 3.14$，判断 $1\neq 2$。',
+      );
+      final List<Token> math =
+          tokens.where((Token t) => t.isMath).toList(growable: false);
+      expect(
+        math.map((Token t) => t.value),
+        <String>[r'\sqrt{8}', r'2\sqrt{2}', r'\pi\approx 3.14', r'1\neq 2'],
+        reason: '4 个行内公式都应完整进入公式通道',
+      );
+
+      final String textChannel = tokens
+          .where((Token t) => !t.isMath)
+          .map((Token t) => t.value)
+          .join();
+      expect(textChannel.contains(r'$'), isFalse,
+          reason: r'落单的 `$` 会原样印到热敏纸上');
+      expect(RegExp(r'\\[a-zA-Z]').hasMatch(textChannel), isFalse,
+          reason: '文本通道不应残留 LaTeX 命令');
+    });
+  });
+
   group('分词：未闭合', () {
     test('lenient：退化为纯文本并带 warning', () {
       final List<Token> tokens = tokenize(r'未闭合 $x');
