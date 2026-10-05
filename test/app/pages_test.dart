@@ -293,6 +293,15 @@ void main() {
     expect(find.text('生成校准条并分享'), findsOneWidget);
   });
 
+  testWidgets('设置页有输出图片管理入口', (WidgetTester tester) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(wrap(controller(), const SettingsPage()));
+
+    expect(find.text('输出图片管理'), findsOneWidget);
+    // 测试环境拿不到目录，占用查询静默失败，副标题回落到默认文案。
+    expect(find.text('查看并清理历史出图'), findsOneWidget);
+  });
+
   testWidgets('设置页连点版本号 7 次进开发者模式', (WidgetTester tester) async {
     // 设置页多了「校准」分区后版本号落到了默认视口之外，先拉长画布再点。
     useTallSurface(tester);

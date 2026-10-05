@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import '../profiles/paper_profile.dart';
 import '../profiles/presets.dart';
 import '../render/raster/binarize.dart';
+import '../share/png_file_store.dart';
 import '../state/profile_controller.dart';
 import 'app_version.dart';
 import 'calibration/calibration_wizard_page.dart';
 import 'developer_settings_page.dart';
+import 'image_store_page.dart';
 
 /// 设置页（Q14：这里只出现档位，裸参数进开发者模式）。
 class SettingsPage extends StatelessWidget {
@@ -84,6 +86,7 @@ class SettingsPage extends StatelessWidget {
               controller.update(profile.copyWith(writePhys: value)),
             ),
           ),
+          const _ImageStoreEntryTile(),
           const Divider(),
           const _SectionHeader('关于'),
           const _AboutTile(),
@@ -126,6 +129,56 @@ class _SectionHeader extends StatelessWidget {
               ),
         ),
       );
+}
+
+/// 输出图片管理入口；副标题显示当前占用，从管理页返回时刷新一次。
+class _ImageStoreEntryTile extends StatefulWidget {
+  const _ImageStoreEntryTile();
+
+  @override
+  State<_ImageStoreEntryTile> createState() => _ImageStoreEntryTileState();
+}
+
+class _ImageStoreEntryTileState extends State<_ImageStoreEntryTile> {
+  final PngFileStore _store = PngFileStore();
+  int? _totalSize;
+
+  @override
+  void initState() {
+    super.initState();
+    _querySize();
+  }
+
+  /// 静默容错：拿不到目录的环境（如 widget 测试没有平台通道）不报错，
+  /// 入口本身照常可用。
+  Future<void> _querySize() async {
+    try {
+      final int size = await _store.totalSize();
+      if (!mounted) return;
+      setState(() => _totalSize = size);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: const Text('输出图片管理'),
+      subtitle: Text(
+        _totalSize == null
+            ? '查看并清理历史出图'
+            : '占用 ${formatBytes(_totalSize!)}',
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (BuildContext context) => const ImageStorePage(),
+          ),
+        );
+        if (mounted) _querySize();
+      },
+    );
+  }
 }
 
 /// 版本号一行；连点 7 次进开发者模式（计划 §5.8 的入口约定）。
