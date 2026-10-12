@@ -29,6 +29,8 @@ class PaperProfile {
     required this.protectStructureLines,
     required this.structureRunLength,
     required this.promoteSubDotStrokes,
+    required this.enhanceMinMax,
+    required this.enhanceClahe,
     required this.minLineWidthPx,
     required this.writePhys,
     required this.oversizeStrategy,
@@ -73,6 +75,14 @@ class PaperProfile {
   /// （计划 §5.4a，超采样之后细竖画只剩这一条救法）。
   final bool promoteSubDotStrokes;
 
+  /// 是否做 min-max 灰度归一：二值化前把亮度线性拉伸到 [0,248]（计划 §2 A1，
+  /// 对齐官方 `ImgNormalizeMaxMin`）。默认关，真机对比后定去留。
+  final bool enhanceMinMax;
+
+  /// 是否做亮区 CLAHE：二值化前对亮部占比过半的图做限制对比度自适应直方图均衡
+  /// （计划 §2 A1，对齐官方 `PrinterImgBinV2` 亮区分支）。默认关，真机对比后定去留。
+  final bool enhanceClahe;
+
   /// 结构线最小线宽（点）。
   final int minLineWidthPx;
 
@@ -102,6 +112,8 @@ class PaperProfile {
     bool? protectStructureLines,
     int? structureRunLength,
     bool? promoteSubDotStrokes,
+    bool? enhanceMinMax,
+    bool? enhanceClahe,
     int? minLineWidthPx,
     bool? writePhys,
     OversizeStrategy? oversizeStrategy,
@@ -123,6 +135,8 @@ class PaperProfile {
         structureRunLength: structureRunLength ?? this.structureRunLength,
         promoteSubDotStrokes:
             promoteSubDotStrokes ?? this.promoteSubDotStrokes,
+        enhanceMinMax: enhanceMinMax ?? this.enhanceMinMax,
+        enhanceClahe: enhanceClahe ?? this.enhanceClahe,
         minLineWidthPx: minLineWidthPx ?? this.minLineWidthPx,
         writePhys: writePhys ?? this.writePhys,
         oversizeStrategy: oversizeStrategy ?? this.oversizeStrategy,
@@ -151,6 +165,8 @@ const PaperProfile kPaperangP1Default = PaperProfile(
   protectStructureLines: true,
   structureRunLength: kStructureRunLength,
   promoteSubDotStrokes: true,
+  enhanceMinMax: false,
+  enhanceClahe: false,
   minLineWidthPx: 1,
   writePhys: true,
   oversizeStrategy: OversizeStrategy.lineBreak,

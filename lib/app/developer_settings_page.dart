@@ -133,6 +133,20 @@ class DeveloperSettingsPage extends StatelessWidget {
             onChanged: (double v) =>
                 apply(profile.copyWith(minLineWidthPx: v.round())),
           ),
+          SwitchListTile(
+            title: const Text('min-max 灰度归一'),
+            subtitle: const Text('二值化前把灰度拉伸到 [0,248]，对齐官方出图'),
+            value: profile.enhanceMinMax,
+            onChanged: (bool value) =>
+                apply(profile.copyWith(enhanceMinMax: value)),
+          ),
+          SwitchListTile(
+            title: const Text('亮区 CLAHE'),
+            subtitle: const Text('亮部占比过半时对亮区做限制对比度增强'),
+            value: profile.enhanceClahe,
+            onChanged: (bool value) =>
+                apply(profile.copyWith(enhanceClahe: value)),
+          ),
           const Divider(),
           _SectionHeader('输出'),
           SwitchListTile(

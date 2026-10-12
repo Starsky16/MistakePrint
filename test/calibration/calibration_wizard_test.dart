@@ -46,30 +46,6 @@ void main() {
       expect(out.writePhys, base.writePhys);
       expect(out.isCalibrated, isTrue);
     });
-
-    test('答「右边有白边」：只翻转 writePhys，不错动宽度', () {
-      const CalibrationAnswers answers =
-          CalibrationAnswers(widthEdge: WidthEdgeAnswer.whiteMargin);
-
-      final PaperProfile out = applyCalibration(base, answers);
-
-      expect(out.writePhys, isNot(base.writePhys));
-      expect(out.printableDotsWidth, base.printableDotsWidth);
-      expect(out.isCalibrated, isTrue);
-    });
-
-    test('答「右边被切」：内缩量由宽度项承载，本项不再猜一个量', () {
-      final PaperProfile out = applyCalibration(
-        base,
-        const CalibrationAnswers(
-          widthEdge: WidthEdgeAnswer.clipped,
-          printableDotsWidth: 366,
-        ),
-      );
-
-      expect(out.printableDotsWidth, 366);
-      expect(out.writePhys, base.writePhys);
-    });
   });
 
   group('细线档位与阈值的冲突消解', () {
@@ -195,11 +171,6 @@ void main() {
       expect(diff, contains('正文字号：${base.bodyFontPx.toInt()} → 20'));
       expect(diff, contains('严格阈值：$kStrictThreshold → $kAggressiveThreshold'));
       expect(diff, contains('已校准：否 → 是'));
-      expect(
-        diff.any((String line) => line.contains('写入 pHYs')),
-        isFalse,
-        reason: '没变的字段不该出现',
-      );
     });
   });
 

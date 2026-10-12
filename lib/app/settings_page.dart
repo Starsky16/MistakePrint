@@ -78,14 +78,6 @@ class SettingsPage extends StatelessWidget {
               '${profile.isCalibrated ? '已校准' : '默认值，尚未校准'}',
             ),
           ),
-          SwitchListTile(
-            title: const Text('写入打印机分辨率元数据'),
-            subtitle: const Text('打出来偏大或偏小就切一下这一项（影响 PNG 的 pHYs 块）'),
-            value: profile.writePhys,
-            onChanged: (bool value) => unawaited(
-              controller.update(profile.copyWith(writePhys: value)),
-            ),
-          ),
           const _ImageStoreEntryTile(),
           const Divider(),
           const _SectionHeader('关于'),

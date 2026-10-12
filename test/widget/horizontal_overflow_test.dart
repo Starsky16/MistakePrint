@@ -229,6 +229,8 @@ void main() {
         protectStructureLines: true,
         structureRunLength: kStructureRunLength,
         promoteSubDotStrokes: true,
+        enhanceMinMax: false,
+        enhanceClahe: false,
         minLineWidthPx: 1,
         writePhys: true,
         oversizeStrategy: OversizeStrategy.scale,

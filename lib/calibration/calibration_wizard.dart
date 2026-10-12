@@ -34,27 +34,6 @@ const double kBodyFontMaxPx = 24;
 /// [kBodyFontMinPx] ~ [kBodyFontMaxPx] 的那几档，用户在同一张图上照着选即可。
 const List<double> kBodyFontCandidates = <double>[16, 18, 20, 22, 24];
 
-/// 「宽度异常判定」这一项的现象。
-///
-/// 它和「有效宽度」靠同一条候选线同时判出来，不需要额外打印（计划 §5.8）。
-enum WidthEdgeAnswer {
-  /// 右边最外面那条线就在纸边附近，打印正常。
-  lineVisible('右边有线（刚好贴边）'),
-
-  /// 右边留了白边，说明打印 App 按 mm 把图缩小了。
-  whiteMargin('右边有白边（图偏小）'),
-
-  /// 右边被切掉，需要按实际边界内缩宽度。
-  clipped('右边被切（图偏大）'),
-
-  /// 看不出来或不想判。
-  unsure('不确定');
-
-  const WidthEdgeAnswer(this.label);
-
-  final String label;
-}
-
 /// 校准向导收集到的答案：**每一项都可以是 null（跳过）**。
 ///
 /// 跳过的项保留档案里的原值，也不会让档案变成「已校准」——「跳过后仍能用默认值出图」
@@ -62,7 +41,6 @@ enum WidthEdgeAnswer {
 class CalibrationAnswers {
   const CalibrationAnswers({
     this.printableDotsWidth,
-    this.widthEdge,
     this.minFontPx,
     this.bodyFontPx,
     this.thinLinePreset,
@@ -72,8 +50,6 @@ class CalibrationAnswers {
 
   /// 有效宽度：用户选中的那条候选线。
   final int? printableDotsWidth;
-
-  final WidthEdgeAnswer? widthEdge;
 
   /// 用户选中的「最小的仍然看得清」的字号。
   final double? minFontPx;
@@ -96,7 +72,6 @@ class CalibrationAnswers {
   /// 是否有任何一项能推导出参数（灰阶不算，它只作诊断）。
   bool get hasDerivableAnswer =>
       printableDotsWidth != null ||
-      widthEdge != null ||
       minFontPx != null ||
       bodyFontPx != null ||
       thinLinePreset != null ||
@@ -109,7 +84,7 @@ class CalibrationAnswers {
 /// 1. 细线档位**先展开**成裸参数（阈值 + 是否保护 + 游程）；
 /// 2. 阈值项**只覆盖 `threshold`**：用户对「哪一档最清楚」的回答比档位表更具体，
 ///    但它不该把游程保护一起改掉；
-/// 3. 宽度、`writePhys`、字号各自独立，互不干涉。
+/// 3. 宽度与字号各自独立，互不干涉。
 ///
 /// 灰阶项只作诊断，不进这个函数。
 PaperProfile applyCalibration(PaperProfile base, CalibrationAnswers answers) {
@@ -125,10 +100,6 @@ PaperProfile applyCalibration(PaperProfile base, CalibrationAnswers answers) {
   if (answers.printableDotsWidth != null) {
     p = p.copyWith(printableDotsWidth: answers.printableDotsWidth);
   }
-  if (answers.widthEdge == WidthEdgeAnswer.whiteMargin) {
-    // 图偏小说明打印 App 按 mm 缩放，切一下 pHYs 元数据即可（计划 §5.8）。
-    p = p.copyWith(writePhys: !p.writePhys);
-  }
   if (answers.minFontPx != null) {
     // 只记下限，不动正文：正文字号由它自己那一项决定（跳过就保留档案原值）。
     p = p.copyWith(minFontPx: answers.minFontPx);
@@ -136,8 +107,6 @@ PaperProfile applyCalibration(PaperProfile base, CalibrationAnswers answers) {
   if (answers.bodyFontPx != null) {
     p = p.copyWith(bodyFontPx: resolveBodyFont(answers.bodyFontPx!, p.minFontPx));
   }
-  // 「右边被切」的内缩量已经由「有效宽度」那一项承载（用户选中的线就是实际边界），
-  // 这里不再猜一个量出来。
   if (answers.hasDerivableAnswer) {
     p = p.copyWith(isCalibrated: true);
   }
@@ -178,7 +147,6 @@ List<String> describeProfileDiff(PaperProfile from, PaperProfile to) {
     from.promoteSubDotStrokes ? '开' : '关',
     to.promoteSubDotStrokes ? '开' : '关',
   );
-  add('写入 pHYs', from.writePhys ? '是' : '否', to.writePhys ? '是' : '否');
   add('已校准', from.isCalibrated ? '是' : '否', to.isCalibrated ? '是' : '否');
   return diff;
 }

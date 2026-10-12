@@ -1,7 +1,7 @@
 // P3-4b 校准向导页测试：只断言接线（出图交给注入的假实现，不跑离屏管线）。
 //
 // 两条硬要求在这里落地：
-// 1. 七项全都跳过时保存不改档案，且保存后照样能出图（计划 §5.8「不做强制引导」）；
+// 1. 六项全都跳过时保存不改档案，且保存后照样能出图（计划 §5.8「不做强制引导」）；
 // 2. 答过的项按 applyCalibration 的规则写回档案。
 
 import 'dart:io';
@@ -130,7 +130,7 @@ void main() {
     expect(find.text('再看一次'), findsOneWidget);
   });
 
-  testWidgets('七项全跳过：保存不改档案，且保存后照样能出图', (WidgetTester tester) async {
+  testWidgets('六项全跳过：保存不改档案，且保存后照样能出图', (WidgetTester tester) async {
     useTallSurface(tester);
     final ProfileController c = controller();
     await tester.pumpWidget(wrap(c, const CalibrationWizardPage()));

@@ -181,6 +181,40 @@ void main() {
     });
   });
 
+  group('二值化：增强算子挂钩', () {
+    test('增强开关全关时输出与不带增强参数一致（逐点一致）', () {
+      final RawCapture cap =
+          grayCapture(oneRow(20, value: 100, start: 2, end: 12));
+      final List<List<bool>> base = binarize(cap);
+      final List<List<bool>> off = binarize(
+        cap,
+        enhanceMinMax: false,
+        enhanceClahe: false,
+      );
+
+      expect(off.length, base.length);
+      for (int y = 0; y < base.length; y++) {
+        expect(off[y], base[y]);
+      }
+    });
+
+    test('min-max 灰度归一会把接近阈值的灰阶拉进黑区', () {
+      // 灰度跨度 100..200：归一后 160→148、100→0，都落到严格阈值 150 之下。
+      final List<int> row = List<int>.filled(20, 200);
+      row[0] = 100;
+      row[1] = 160;
+      row[2] = 160;
+      final RawCapture cap = grayCapture(<List<int>>[row]);
+
+      expect(countDark(binarize(cap)), 1, reason: '原图只有灰度 100 那点入黑');
+      expect(
+        countDark(binarize(cap, enhanceMinMax: true)),
+        3,
+        reason: '归一后 160 拉到 148，三点全黑',
+      );
+    });
+  });
+
   group('二值化：统计工具', () {
     test('countDark 与 longestDarkRun 在多行上取值正确', () {
       final List<List<int>> gray = <List<int>>[

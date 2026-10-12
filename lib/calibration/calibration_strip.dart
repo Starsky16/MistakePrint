@@ -332,7 +332,7 @@ class _WidthSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          _caption('① 有效宽度 · ② 宽度异常：右边那条线看得见的最外面一个数字是几？'
+          _caption('① 有效宽度：右边那条线看得见的最外面一个数字是几？'
               '（右边有白边／被切也看这里）'),
           CustomPaint(
             size: Size(kCalibrationStripWidth.toDouble(), kHeight),
