@@ -5,6 +5,7 @@
 // 2. 答过的项按 applyCalibration 的规则写回档案。
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +18,7 @@ import 'package:mistake_print/profiles/profile_store.dart';
 import 'package:mistake_print/render/offscreen/print_renderer.dart';
 import 'package:mistake_print/render/raster/binarize.dart';
 import 'package:mistake_print/render/raster/png_encode.dart';
+import 'package:mistake_print/share/gallery_store.dart';
 import 'package:mistake_print/state/app_prefs.dart';
 import 'package:mistake_print/state/profile_controller.dart';
 
@@ -73,6 +75,33 @@ class FakeRenderer extends PrintRenderer {
   }
 }
 
+/// 内存假相册：预览页 initState 会写相册，用替身不碰平台通道。
+class FakeGalleryStore extends GalleryStore {
+  FakeGalleryStore();
+
+  @override
+  Future<GalleryImage> save(Uint8List png, {required String name}) async =>
+      GalleryImage(
+        id: '1',
+        uri: 'content://media/external/images/media/1',
+        name: name,
+        size: png.length,
+        date: DateTime.fromMillisecondsSinceEpoch(0),
+      );
+
+  @override
+  Future<List<GalleryImage>> list() async => const <GalleryImage>[];
+
+  @override
+  Future<Uint8List> readBytes(String uri) async => Uint8List(0);
+
+  @override
+  Future<void> delete(String uri) async {}
+
+  @override
+  Future<void> deleteAll() async {}
+}
+
 void main() {
   late Directory tempRoot;
 
@@ -113,7 +142,7 @@ void main() {
     );
     await tester.pumpWidget(wrap(
       controller(),
-      CalibrationWizardPage(stripRenderer: strip),
+      CalibrationWizardPage(stripRenderer: strip, galleryStore: FakeGalleryStore()),
     ));
 
     await tester.tap(find.text('生成校准条并分享'));
@@ -239,7 +268,7 @@ void main() {
     final FakeRenderer renderer = FakeRenderer(sampleImage(height: 151));
     await tester.pumpWidget(wrap(
       controller(),
-      CalibrationWizardPage(renderer: renderer),
+      CalibrationWizardPage(renderer: renderer, galleryStore: FakeGalleryStore()),
     ));
 
     await tester.tap(chip('width', '360'));

@@ -8,6 +8,7 @@ import '../../calibration/calibration_wizard.dart';
 import '../../profiles/paper_profile.dart';
 import '../../profiles/presets.dart';
 import '../../render/offscreen/print_renderer.dart';
+import '../../share/gallery_store.dart';
 import '../../state/profile_controller.dart';
 import '../input_page.dart' show kSampleText;
 import '../preview_page.dart';
@@ -21,6 +22,7 @@ class CalibrationWizardPage extends StatefulWidget {
     super.key,
     this.stripRenderer = const CalibrationStripRenderer(),
     this.renderer = const PrintRenderer(),
+    this.galleryStore = const GalleryStore(),
   });
 
   /// 校准条出图器，测试注入假实现以免真的跑离屏管线。
@@ -28,6 +30,9 @@ class CalibrationWizardPage extends StatefulWidget {
 
   /// 汇总预览用的出图器（同一份出图实现，只是换一组参数）。
   final PrintRenderer renderer;
+
+  /// 相册存储，测试注入假实现以免碰平台通道。
+  final GalleryStore galleryStore;
 
   @override
   State<CalibrationWizardPage> createState() => _CalibrationWizardPageState();
@@ -136,7 +141,8 @@ class _CalibrationWizardPageState extends State<CalibrationWizardPage> {
 
   Future<void> _openPreview(PrintImage image) => Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (BuildContext context) => PreviewPage(image: image),
+          builder: (BuildContext context) =>
+              PreviewPage(image: image, galleryStore: widget.galleryStore),
         ),
       );
 

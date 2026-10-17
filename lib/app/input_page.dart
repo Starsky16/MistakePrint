@@ -8,6 +8,7 @@ import '../domain/tokenizer.dart';
 import '../profiles/paper_profile.dart';
 import '../render/offscreen/offscreen_canvas.dart';
 import '../render/offscreen/print_renderer.dart';
+import '../share/gallery_store.dart';
 import '../state/app_prefs.dart';
 import '../state/profile_controller.dart';
 import 'app_version.dart';
@@ -28,12 +29,16 @@ class InputPage extends StatefulWidget {
     super.key,
     this.renderer = const PrintRenderer(),
     this.prefsStore = const AppPrefsStore(),
+    this.galleryStore = const GalleryStore(),
   });
 
   /// 出图器，测试注入假实现以免真的跑离屏渲染。
   final PrintRenderer renderer;
 
   final AppPrefsStore prefsStore;
+
+  /// 相册存储，测试注入假实现以免碰平台通道。
+  final GalleryStore galleryStore;
 
   @override
   State<InputPage> createState() => _InputPageState();
@@ -145,6 +150,7 @@ class _InputPageState extends State<InputPage> {
           builder: (BuildContext context) => PreviewPage(
             image: image,
             notices: notices,
+            galleryStore: widget.galleryStore,
           ),
         ),
       );

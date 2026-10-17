@@ -4,6 +4,7 @@
 // test/share/share_service_test.dart 覆盖，这里只断言「页面接线对不对」。
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +18,7 @@ import 'package:mistake_print/profiles/presets.dart';
 import 'package:mistake_print/profiles/profile_store.dart';
 import 'package:mistake_print/render/offscreen/print_renderer.dart';
 import 'package:mistake_print/render/raster/png_encode.dart';
+import 'package:mistake_print/share/gallery_store.dart';
 import 'package:mistake_print/state/app_prefs.dart';
 import 'package:mistake_print/state/profile_controller.dart';
 
@@ -72,6 +74,37 @@ class FakePrefsStore extends AppPrefsStore {
 
   @override
   Future<void> save(AppPrefs prefs) async => saved = prefs;
+}
+
+/// 内存假相册：save 立即返回一条记录，不碰平台通道。
+class FakeGalleryStore extends GalleryStore {
+  FakeGalleryStore();
+
+  int savedCount = 0;
+
+  @override
+  Future<GalleryImage> save(Uint8List png, {required String name}) async {
+    savedCount++;
+    return GalleryImage(
+      id: '$savedCount',
+      uri: 'content://media/external/images/media/$savedCount',
+      name: name,
+      size: png.length,
+      date: DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  @override
+  Future<List<GalleryImage>> list() async => const <GalleryImage>[];
+
+  @override
+  Future<Uint8List> readBytes(String uri) async => Uint8List(0);
+
+  @override
+  Future<void> delete(String uri) async {}
+
+  @override
+  Future<void> deleteAll() async {}
 }
 
 void main() {
@@ -254,14 +287,17 @@ void main() {
   });
 
   testWidgets('预览页展示出图信息与分享入口', (WidgetTester tester) async {
+    final FakeGalleryStore store = FakeGalleryStore();
     await tester.pumpWidget(wrap(
       controller(),
-      PreviewPage(image: sampleImage()),
+      PreviewPage(image: sampleImage(), galleryStore: store),
     ));
+    await tester.pumpAndSettle();
 
     expect(find.textContaining('384 × 151 点'), findsOneWidget);
     expect(find.textContaining('排版 2 轮'), findsOneWidget);
-    expect(find.text('分享到喵喵机 App'), findsOneWidget);
+    expect(find.text('分享 / 发送图片'), findsOneWidget);
+    expect(store.savedCount, 1, reason: '进入预览页即写入相册');
   });
 
   testWidgets('设置页选档位会写回档案', (WidgetTester tester) async {

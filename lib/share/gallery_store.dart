@@ -117,7 +117,6 @@ class GalleryStore {
   /// 形如 `mistake_20260921-153012-384x7910.png`：时间戳保证同一秒外的两次出图不
   /// 互相覆盖，宽高让用户在相册与分享面板里一眼认出是哪一张。全 ASCII —— 文件名
   /// 会经 `Intent.EXTRA_STREAM` 传给别的 App，不用中文以免个别机型上乱码。
-  @visibleForTesting
   static String buildFileName(int width, int height, DateTime? now) {
     String two(int value) => value.toString().padLeft(2, '0');
     final DateTime t = now ?? DateTime.now();
