@@ -13,7 +13,7 @@ class ProfileStore {
   const ProfileStore({this.rootProvider = getApplicationSupportDirectory});
 
   /// 存档根目录的来源，测试注入；默认走 path_provider 的应用支持目录
-  /// （Android 上是 `filesDir`，清缓存不会丢，也不属于 share_plus 的可分享目录）。
+  /// （Android 上是 `filesDir`，清缓存不会丢）。
   final Future<Directory> Function() rootProvider;
 
   static const String kFileName = 'profile.json';
