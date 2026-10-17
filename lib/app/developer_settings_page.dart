@@ -158,8 +158,7 @@ class DeveloperSettingsPage extends StatelessWidget {
               ],
             ),
           ),
-          const Divider(),
-          _SectionHeader('二值化'),
+          const SizedBox(height: 24),
         ],
       ),
     );

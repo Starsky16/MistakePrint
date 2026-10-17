@@ -26,7 +26,7 @@ class ProfileStore {
   /// 读取存档。
   ///
   /// 文件不存在、内容被截断、版本不符时一律回落到 [kPaperangP1Default] —— 档案是
-  /// 可随时重跑校准向导重新生成的数据，坏了就重来，不值得为它中断启动。
+  /// 设置页可随时重设、开发者模式可一键重置的数据，坏了就重来，不值得为它中断启动。
   Future<PaperProfile> load() async {
     final File target = await file();
     if (!await target.exists()) return kPaperangP1Default;

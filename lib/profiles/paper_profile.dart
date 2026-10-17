@@ -97,7 +97,7 @@ class PaperProfile {
   /// 历史字段：校准向导已移除，保留仅为兼容旧档案，不再有写入路径。
   final bool isCalibrated;
 
-  /// 逐字段派生一份新档案（校准向导与档位展开都靠它落地）。
+  /// 逐字段派生一份新档案（设置页写回与档位展开都靠它落地）。
   PaperProfile copyWith({
     String? id,
     String? name,
@@ -153,7 +153,7 @@ class PaperProfile {
 /// 最小可读字号 14、正文 18。
 const PaperProfile kPaperangP1Default = PaperProfile(
   id: 'paperang-p1',
-  name: '作业帮喵喵机 P1（默认值，未校准）',
+  name: '作业帮喵喵机 P1（出厂默认）',
   dpi: 203,
   paperWidthMm: 57,
   printableDotsWidth: 384,

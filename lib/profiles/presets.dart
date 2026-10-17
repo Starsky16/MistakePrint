@@ -15,7 +15,7 @@ enum ThinLinePreset {
   standard('标准'),
 
   /// 再把严格阈值抬到 [kAggressiveThreshold]（墨量进一步上升），
-  /// 用于用户在校准条上确认「标准档的细线还是发虚」之后。
+  /// 用于用户在实机打印件上确认「标准档的细线还是发虚」之后。
   aggressive('激进');
 
   const ThinLinePreset(this.label);
@@ -49,8 +49,8 @@ class ThinLinePresetParams {
 /// 与 [ThinLinePresetParams.promoteSubDotStrokes]，标准 vs 激进差
 /// [ThinLinePresetParams.threshold]），所以反查结果唯一。
 ///
-/// 注意：`minLineWidthPx` 不在表内。它由校准向导的「这条最细的线看得见吗」单项
-/// 产出，且当前光栅阶段尚不消费它（游程保护与亚点笔画提升本身已保证结构线 ≥1 点粗），
+/// 注意：`minLineWidthPx` 不在表内。它只能由开发者模式的「最小线宽」滑杆单独调，
+/// 且当前光栅阶段尚不消费它（游程保护与亚点笔画提升本身已保证结构线 ≥1 点粗），
 /// 放进档位只会给出一个界面上看不出差别的假开关。
 const Map<ThinLinePreset, ThinLinePresetParams> kThinLinePresetTable =
     <ThinLinePreset, ThinLinePresetParams>{

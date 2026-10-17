@@ -296,6 +296,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(c.profile.bodyFontPx, 20.0);
+    // 公式字号跟随正文同比例缩放：20 × (24/18) ≈ 26.7。
+    expect(c.profile.mathFontPx, closeTo(20 * 24 / 18, 0.01));
+
+    // 选 16 点时缩放结果 21.3 会跌破公式字号下限，必须被夹到 24。
+    await tester.tap(find.byType(DropdownButton<double>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('16 点'));
+    await tester.pumpAndSettle();
+
+    expect(c.profile.bodyFontPx, 16.0);
+    expect(c.profile.mathFontPx, 24.0);
   });
 
   testWidgets('设置页有输出图片管理入口', (WidgetTester tester) async {

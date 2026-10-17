@@ -97,6 +97,9 @@ class _BodyFontTile extends StatelessWidget {
 
   static const List<double> _options = <double>[16, 18, 20, 22, 24];
 
+  /// 公式字号下限：小字号分数线会被二值化抹掉（见 `PaperProfile.mathFontPx` 注释）。
+  static const double _minMathFontPx = 24;
+
   @override
   Widget build(BuildContext context) {
     final double value = profile.bodyFontPx;
@@ -122,15 +125,20 @@ class _BodyFontTile extends StatelessWidget {
         items: items,
         onChanged: (double? newValue) {
           if (newValue == null) return;
-          // 正文字号不能小于最小可读字号下限；公式字号跟随正文章同比例缩放。
+          // 正文字号不能小于最小可读字号下限；公式字号跟随正文同比例缩放，
+          // 但不得低于下限——小字号的分数线会被二值化抹掉。
           final double minFontPx = profile.minFontPx;
           final double mathScale = profile.mathFontPx / profile.bodyFontPx;
           final double nextMinFontPx =
               minFontPx > newValue ? newValue : minFontPx;
+          final double nextMathFontPx =
+              mathScale * newValue < _minMathFontPx
+                  ? _minMathFontPx
+                  : mathScale * newValue;
           unawaited(controller.update(profile.copyWith(
             bodyFontPx: newValue,
             minFontPx: nextMinFontPx,
-            mathFontPx: newValue * mathScale,
+            mathFontPx: nextMathFontPx,
           )));
         },
       ),
