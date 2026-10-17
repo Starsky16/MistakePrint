@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// 相册通道名（Android MainActivity 里同名 MethodChannel）。

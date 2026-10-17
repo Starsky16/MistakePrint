@@ -1,8 +1,8 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../share/png_file_store.dart';
+import '../share/gallery_store.dart';
 
 /// 字节数的可读形式：不足 1 MB 用 KB，往上用 MB（出图多为几百 KB 的长条图）。
 String formatBytes(int bytes) {
@@ -10,23 +10,23 @@ String formatBytes(int bytes) {
   return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
 }
 
-/// 输出图片管理页：列出 `<cacheDir>/mistake_print/` 里的历史出图，
-/// 支持全屏预览、单张删除与全部清空（设计 2026-10-05）。
+/// 输出图片管理页：列出系统相册 `Pictures/MistakePrint/` 里本应用写入的图，
+/// 支持全屏预览、单张删除与全部清空（出图入相册设计）。
+///
+/// 数据源就是对相册的实时查询，没有本地索引——删完即生效，不存在「App 里删了、
+/// 图库还留着」的死链。
 class ImageStorePage extends StatefulWidget {
-  const ImageStorePage({super.key, this.store});
+  const ImageStorePage({super.key, this.store = const GalleryStore()});
 
-  /// 存储来源；默认走 path_provider（Android 上是 cacheDir），测试注入临时目录。
-  final PngFileStore? store;
+  /// 相册来源，测试注入假实现。
+  final GalleryStore store;
 
   @override
   State<ImageStorePage> createState() => _ImageStorePageState();
 }
 
 class _ImageStorePageState extends State<ImageStorePage> {
-  late final PngFileStore _store = widget.store ?? PngFileStore();
-
-  List<File> _files = <File>[];
-  int _totalSize = 0;
+  List<GalleryImage> _images = <GalleryImage>[];
   bool _loading = true;
 
   @override
@@ -36,12 +36,10 @@ class _ImageStorePageState extends State<ImageStorePage> {
   }
 
   Future<void> _refresh() async {
-    final List<File> files = await _store.list();
-    final int totalSize = await _store.totalSize();
+    final List<GalleryImage> images = await widget.store.list();
     if (!mounted) return;
     setState(() {
-      _files = files;
-      _totalSize = totalSize;
+      _images = images;
       _loading = false;
     });
   }
@@ -69,15 +67,15 @@ class _ImageStorePageState extends State<ImageStorePage> {
         ),
       );
 
-  Future<void> _delete(File file) async {
+  Future<void> _delete(GalleryImage image) async {
     final bool? ok = await _confirm(
       title: '删除这张图',
-      message: '${file.uri.pathSegments.last} 将被删除，无法恢复。继续？',
+      message: '${image.name} 将从相册中删除，无法恢复。继续？',
       confirmLabel: '删除',
     );
     if (ok != true) return;
     try {
-      await _store.delete(file);
+      await widget.store.delete(image.uri);
       await _refresh();
     } catch (error) {
       if (!mounted) return;
@@ -89,14 +87,12 @@ class _ImageStorePageState extends State<ImageStorePage> {
   Future<void> _deleteAll() async {
     final bool? ok = await _confirm(
       title: '清空全部输出图片',
-      message: '共 ${_files.length} 张将被删除，无法恢复。继续？',
+      message: '共 ${_images.length} 张将从相册中删除，无法恢复。继续？',
       confirmLabel: '清空',
     );
     if (ok != true) return;
     try {
-      await _store.deleteAll();
-      // share_plus 每次分享都会重新复制一份，顺带清掉它的残留（见设计文档）。
-      await _store.deleteSharePlusCache();
+      await widget.store.deleteAll();
       await _refresh();
     } catch (error) {
       if (!mounted) return;
@@ -107,11 +103,13 @@ class _ImageStorePageState extends State<ImageStorePage> {
 
   @override
   Widget build(BuildContext context) {
+    final int totalSize =
+        _images.fold<int>(0, (int sum, GalleryImage image) => sum + image.size);
     return Scaffold(
       appBar: AppBar(
         title: const Text('输出图片'),
         actions: <Widget>[
-          if (!_loading && _files.isNotEmpty)
+          if (!_loading && _images.isNotEmpty)
             TextButton(
               onPressed: _deleteAll,
               child: const Text('全部清空'),
@@ -120,7 +118,7 @@ class _ImageStorePageState extends State<ImageStorePage> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _files.isEmpty
+          : _images.isEmpty
               ? const Center(child: Text('还没有输出图片'))
               : Column(
                   children: <Widget>[
@@ -129,28 +127,31 @@ class _ImageStorePageState extends State<ImageStorePage> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          '共 ${_files.length} 张 · 占用 ${formatBytes(_totalSize)}',
+                          '共 ${_images.length} 张 · 占用 ${formatBytes(totalSize)}',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
                     ),
                     Expanded(
                       child: ListView.builder(
-                        itemCount: _files.length,
+                        itemCount: _images.length,
                         itemBuilder: (BuildContext context, int index) {
-                          final File file = _files[index];
+                          final GalleryImage image = _images[index];
                           return ListTile(
-                            title: Text(file.uri.pathSegments.last),
-                            subtitle: Text(formatBytes(file.lengthSync())),
+                            title: Text(image.name),
+                            subtitle: Text(formatBytes(image.size)),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete_outline),
                               tooltip: '删除',
-                              onPressed: () => _delete(file),
+                              onPressed: () => _delete(image),
                             ),
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (BuildContext context) =>
-                                    _ImagePreviewPage(file: file),
+                                    _ImagePreviewPage(
+                                  store: widget.store,
+                                  image: image,
+                                ),
                               ),
                             ),
                           );
@@ -163,11 +164,37 @@ class _ImageStorePageState extends State<ImageStorePage> {
   }
 }
 
-/// 全屏预览：纯黑底 + 双指缩放拖动。
-class _ImagePreviewPage extends StatelessWidget {
-  const _ImagePreviewPage({required this.file});
+/// 全屏预览：纯黑底 + 双指缩放拖动；字节经相册通道按媒体 URI 读回。
+class _ImagePreviewPage extends StatefulWidget {
+  const _ImagePreviewPage({required this.store, required this.image});
 
-  final File file;
+  final GalleryStore store;
+  final GalleryImage image;
+
+  @override
+  State<_ImagePreviewPage> createState() => _ImagePreviewPageState();
+}
+
+class _ImagePreviewPageState extends State<_ImagePreviewPage> {
+  Uint8List? _bytes;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final Uint8List bytes = await widget.store.readBytes(widget.image.uri);
+      if (!mounted) return;
+      setState(() => _bytes = bytes);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = '$error');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,17 +202,24 @@ class _ImagePreviewPage extends StatelessWidget {
       backgroundColor: Colors.black,
       appBar: AppBar(
         title: Text(
-          file.uri.pathSegments.last,
+          widget.image.name,
           style: const TextStyle(color: Colors.white),
         ),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
       body: Center(
-        child: InteractiveViewer(
-          maxScale: 8,
-          child: Image.file(file, fit: BoxFit.contain),
-        ),
+        child: _error != null
+            ? Text(
+                '读取失败：$_error',
+                style: const TextStyle(color: Colors.white70),
+              )
+            : _bytes == null
+                ? const CircularProgressIndicator()
+                : InteractiveViewer(
+                    maxScale: 8,
+                    child: Image.memory(_bytes!, fit: BoxFit.contain),
+                  ),
       ),
     );
   }

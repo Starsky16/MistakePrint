@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../profiles/paper_profile.dart';
 import '../profiles/presets.dart';
 import '../render/raster/binarize.dart';
-import '../share/png_file_store.dart';
+import '../share/gallery_store.dart';
 import '../state/profile_controller.dart';
 import 'app_version.dart';
 import 'calibration/calibration_wizard_page.dart';
@@ -132,7 +132,7 @@ class _ImageStoreEntryTile extends StatefulWidget {
 }
 
 class _ImageStoreEntryTileState extends State<_ImageStoreEntryTile> {
-  final PngFileStore _store = PngFileStore();
+  final GalleryStore _store = const GalleryStore();
   int? _totalSize;
 
   @override
@@ -141,7 +141,7 @@ class _ImageStoreEntryTileState extends State<_ImageStoreEntryTile> {
     _querySize();
   }
 
-  /// 静默容错：拿不到目录的环境（如 widget 测试没有平台通道）不报错，
+  /// 静默容错：拿不到相册的环境（如 widget 测试没有平台通道）不报错，
   /// 入口本身照常可用。
   Future<void> _querySize() async {
     try {
