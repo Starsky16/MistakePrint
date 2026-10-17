@@ -10,10 +10,10 @@ enum OversizeStrategy {
   scale,
 }
 
-/// 机型档案：宽度与阈值相关的**唯一真相**（计划 §5.5）。
+/// 机型档案：宽度与阈值相关的**唯一真相**。
 ///
 /// 所有长度以「打印机点」为单位，不用 mm、不用逻辑像素。
-/// 新增机型 = 新增档案 + 在 App 内跑一次校准向导，不改代码。
+/// 新增机型 = 新增档案，不改代码。
 class PaperProfile {
   const PaperProfile({
     required this.id,
@@ -50,7 +50,7 @@ class PaperProfile {
   /// 有效打印点阵宽度：版式与输出图的宽度都必须精确等于它。
   final int printableDotsWidth;
 
-  /// 最小可读字号下限，由校准向导得出。
+  /// 最小可读字号下限。默认 14，开发者模式可调。
   final double minFontPx;
 
   /// 正文 CJK 字号。
@@ -94,7 +94,7 @@ class PaperProfile {
   /// 选项排布列数（首期恒为 1，含公式时必然单列）。
   final int columns;
 
-  /// 是否已由用户校准；false 表示仍是保守默认值（experimental）。
+  /// 历史字段：校准向导已移除，保留仅为兼容旧档案，不再有写入路径。
   final bool isCalibrated;
 
   /// 逐字段派生一份新档案（校准向导与档位展开都靠它落地）。
@@ -149,8 +149,8 @@ class PaperProfile {
 ///
 /// 二值化相关的四项（`threshold` / `protectStructureLines` / `structureRunLength` /
 /// `promoteSubDotStrokes`）取自「标准」档，依据是 **v0.1.0 实机结论**与 T1 离线量测；
-/// 字号两项（`minFontPx` / `bodyFontPx`）依据 **v0.1.1 校准条实机结论**（2026-09-27）：
-/// 最小可读字号 14、正文 18。全部字段都能被校准向导改掉（计划 §5.4a、§2.3）。
+/// 字号两项（`minFontPx` / `bodyFontPx`）依据 **v0.1.1 实机结论**（2026-09-27）：
+/// 最小可读字号 14、正文 18。
 const PaperProfile kPaperangP1Default = PaperProfile(
   id: 'paperang-p1',
   name: '作业帮喵喵机 P1（默认值，未校准）',

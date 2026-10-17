@@ -8,44 +8,31 @@ import '../domain/input_preprocess.dart';
 
 /// 界面偏好：与打印参数无关的那点小事。
 ///
-/// 单独立一份而不混进 `PaperProfile`：档案是「打印机的物理事实」，会被校准向导整体
-/// 重写一次；偏好是「用户看腻了这条提示」「上次选的输出模式」，两者生命周期完全不同。
+/// 单独立一份而不混进 `PaperProfile`：档案是「打印机的物理事实」；
+/// 偏好是「上次选的输出模式」，两者生命周期完全不同。
 class AppPrefs {
   const AppPrefs({
-    this.calibrationHintDismissed = false,
     this.outputMode = OutputMode.fullText,
   });
-
-  /// 用户是否已经关掉首页的「还没校准过」提示条。
-  final bool calibrationHintDismissed;
 
   /// 上次选的输出模式（默认全文：粘贴 AI 输出即用）。
   final OutputMode outputMode;
 
   AppPrefs copyWith({
-    bool? calibrationHintDismissed,
     OutputMode? outputMode,
   }) =>
       AppPrefs(
-        calibrationHintDismissed:
-            calibrationHintDismissed ?? this.calibrationHintDismissed,
         outputMode: outputMode ?? this.outputMode,
       );
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'calibrationHintDismissed': calibrationHintDismissed,
         'outputMode': outputMode.name,
       };
 
   /// 容错解码：字段缺了或类型不对都取默认值。
   static AppPrefs fromJson(Object? raw) {
     if (raw is! Map) return const AppPrefs();
-    const AppPrefs defaults = AppPrefs();
-    final Object? dismissed = raw['calibrationHintDismissed'];
     return AppPrefs(
-      calibrationHintDismissed: dismissed is bool
-          ? dismissed
-          : defaults.calibrationHintDismissed,
       outputMode: OutputMode.fromName(raw['outputMode']),
     );
   }
@@ -66,7 +53,7 @@ class AppPrefsStore {
 
   /// 读偏好；**预期内的失败都回落默认值**。
   ///
-  /// 这里破例吞掉两类预期异常：偏好只决定一条提示条是否出现，读不到就用默认值继续，
+  /// 这里破例吞掉两类预期异常：偏好只决定输出模式，读不到就用默认值继续，
   /// 不值得为它中断启动。其余异常照常上抛，免得把真 bug 也一起盖住。
   Future<AppPrefs> load() async {
     try {

@@ -45,16 +45,6 @@ class DeveloperSettingsPage extends StatelessWidget {
           const Divider(),
           _SectionHeader('版式'),
           _ParamSlider(
-            label: '点阵宽度',
-            unit: '点',
-            value: profile.printableDotsWidth.toDouble(),
-            min: 300,
-            max: 420,
-            divisions: 120,
-            onChanged: (double v) =>
-                apply(profile.copyWith(printableDotsWidth: v.round())),
-          ),
-          _ParamSlider(
             label: '最小可读字号',
             unit: '点',
             value: profile.minFontPx,
@@ -63,18 +53,9 @@ class DeveloperSettingsPage extends StatelessWidget {
             divisions: 20,
             onChanged: (double v) => apply(profile.copyWith(
               minFontPx: v,
-              // 正文不得小于最小可读字号，否则版式会突破校准得出的下限。
+              // 正文不得小于最小可读字号，否则版式会突破下限。
               bodyFontPx: profile.bodyFontPx < v ? v : profile.bodyFontPx,
             )),
-          ),
-          _ParamSlider(
-            label: '正文字号',
-            unit: '点',
-            value: profile.bodyFontPx,
-            min: 12,
-            max: 40,
-            divisions: 28,
-            onChanged: (double v) => apply(profile.copyWith(bodyFontPx: v)),
           ),
           _ParamSlider(
             label: '公式字号',
@@ -178,15 +159,7 @@ class DeveloperSettingsPage extends StatelessWidget {
             ),
           ),
           const Divider(),
-          _SectionHeader('校准状态'),
-          SwitchListTile(
-            title: const Text('标记为已校准'),
-            subtitle: const Text('关掉会让首页重新出现「还没校准」提示条'),
-            value: profile.isCalibrated,
-            onChanged: (bool value) =>
-                apply(profile.copyWith(isCalibrated: value)),
-          ),
-          const SizedBox(height: 24),
+          _SectionHeader('二值化'),
         ],
       ),
     );

@@ -22,8 +22,7 @@ const String kSampleText =
 
 /// 首页：粘贴题干 → 出图 → 进预览页分享。
 ///
-/// 计划 §5.8「不做强制引导」：首页不弹向导，用默认参数就能直接出图；只在没校准过
-/// 的时候挂一条可永久关掉的提示条，把向导放在设置里等人来。
+/// 默认参数就能直接出图；字号与细线在设置页调。
 class InputPage extends StatefulWidget {
   const InputPage({
     super.key,
@@ -101,9 +100,6 @@ class _InputPageState extends State<InputPage> {
     await widget.prefsStore.save(next);
   }
 
-  Future<void> _dismissHint() =>
-      _savePrefs(_prefs.copyWith(calibrationHintDismissed: true));
-
   Future<void> _setMode(OutputMode mode) async {
     if (mode == _prefs.outputMode) return;
     await _savePrefs(_prefs.copyWith(outputMode: mode));
@@ -173,8 +169,6 @@ class _InputPageState extends State<InputPage> {
   Widget build(BuildContext context) {
     final ProfileController controller = ProfileScope.of(context);
     final PaperProfile profile = controller.profile;
-    final bool showHint =
-        !profile.isCalibrated && !_prefs.calibrationHintDismissed;
 
     return Scaffold(
       appBar: AppBar(
@@ -193,15 +187,6 @@ class _InputPageState extends State<InputPage> {
       ),
       body: Column(
         children: <Widget>[
-          if (showHint)
-            _CalibrationHint(
-              onDismiss: () => unawaited(_dismissHint()),
-              onOpenSettings: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (BuildContext context) => const SettingsPage(),
-                ),
-              ),
-            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: SegmentedButton<OutputMode>(
@@ -270,46 +255,6 @@ class _InputPageState extends State<InputPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 未校准提示条（可永久关闭）。
-class _CalibrationHint extends StatelessWidget {
-  const _CalibrationHint({required this.onDismiss, required this.onOpenSettings});
-
-  final VoidCallback onDismiss;
-  final VoidCallback onOpenSettings;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
-    return Material(
-      color: colors.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-        child: Row(
-          children: <Widget>[
-            Icon(Icons.info_outline, size: 20, color: colors.onSecondaryContainer),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '当前用的是默认参数。打一张校准条就能把宽度、字号、细线调到这台机器上最好的状态。',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: colors.onSecondaryContainer),
-              ),
-            ),
-            TextButton(onPressed: onOpenSettings, child: const Text('去设置')),
-            IconButton(
-              onPressed: onDismiss,
-              icon: const Icon(Icons.close, size: 18),
-              tooltip: '不再提示',
-            ),
-          ],
-        ),
       ),
     );
   }
