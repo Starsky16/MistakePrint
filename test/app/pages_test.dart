@@ -437,6 +437,34 @@ void main() {
     });
   });
 
+  testWidgets('P2 档下正文字号选项按 dpi 缩放（24/27/30/33/35 点）', (WidgetTester tester) async {
+    useTallSurface(tester);
+    final ProfileController c = controller();
+    await tester.pumpWidget(wrap(c, const SettingsPage()));
+
+    unawaited(c.update(kPaperangP2Default));
+    await tester.pump();
+
+    await tester.tap(find.byType(DropdownButton<double>).first);
+    await tester.pumpAndSettle();
+
+    // P1 选项 16/18/20/22/24 × 300/203 取整。
+    expect(find.text('24 点'), findsWidgets);
+    expect(find.text('27 点'), findsWidgets);
+    expect(find.text('30 点'), findsWidgets);
+    expect(find.text('33 点'), findsWidgets);
+    expect(find.text('35 点'), findsWidgets);
+    expect(find.text('16 点'), findsNothing);
+    expect(find.text('18 点'), findsNothing);
+
+    await tester.tap(find.text('24 点').last);
+    await tester.pumpAndSettle();
+
+    expect(c.profile.bodyFontPx, 24.0);
+    // 数学缩放比 35/27，24×35/27 ≈ 31.1 跌破 P2 的公式下限 35（=24×300/203），被夹住。
+    expect(c.profile.mathFontPx, 35.0);
+  });
+
   group('AppPrefsStore', () {
     test('偏好在注入目录里往返一致', () async {
       final AppPrefsStore store = AppPrefsStore(rootProvider: () async => tempRoot);

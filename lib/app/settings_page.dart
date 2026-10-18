@@ -175,10 +175,22 @@ class _BodyFontTile extends StatelessWidget {
   final PaperProfile profile;
   final ProfileController controller;
 
-  static const List<double> _options = <double>[16, 18, 20, 22, 24];
+  /// 档位选项：P1（203 dpi）上的点数值。其他机型按 dpi 比例缩放后取整，
+  /// 保证不同机型上给到的是同一批「物理字号」。
+  static const List<double> _p1Options = <double>[16, 18, 20, 22, 24];
 
-  /// 公式字号下限：小字号分数线会被二值化抹掉（见 `PaperProfile.mathFontPx` 注释）。
-  static const double _minMathFontPx = 24;
+  /// P1（203 dpi）上的公式字号下限（见 `PaperProfile.mathFontPx` 注释）。
+  static const double _p1MinMathFontPx = 24;
+
+  /// 当前机型的档位选项：按 dpi 比例缩放并取整（P1 上与 [_p1Options] 逐位相同）。
+  List<double> get _options => <double>[
+        for (final double option in _p1Options)
+          (option * profile.dpi / 203).roundToDouble(),
+      ];
+
+  /// 当前机型的公式字号下限：与字号同比例缩放（203 dpi 的 24 点 = 300 dpi 的 35 点）。
+  double get _minMathFontPx =>
+      (_p1MinMathFontPx * profile.dpi / 203).roundToDouble();
 
   @override
   Widget build(BuildContext context) {
