@@ -322,7 +322,7 @@ void main() {
   });
 
   testWidgets('设置页连点版本号 7 次进开发者模式', (WidgetTester tester) async {
-    // 设置页多了「校准」分区后版本号落到了默认视口之外，先拉长画布再点。
+    // 设置项较多，版本号落在默认视口之外，先拉长画布再点。
     useTallSurface(tester);
     await tester.pumpWidget(wrap(controller(), const SettingsPage()));
 
