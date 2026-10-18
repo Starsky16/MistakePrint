@@ -384,6 +384,59 @@ void main() {
     expect(c.profile.threshold, kStrictThreshold);
   });
 
+  group('机型下拉', () {
+    testWidgets('默认选中 P1', (WidgetTester tester) async {
+      useTallSurface(tester);
+      final ProfileController c = controller();
+      await tester.pumpWidget(wrap(c, const SettingsPage()));
+
+      expect(
+        tester.widget<DropdownButton<String>>(
+          find.byType(DropdownButton<String>),
+        ).value,
+        'paperang-p1',
+      );
+      expect(find.text('作业帮喵喵机 P1'), findsOneWidget);
+    });
+
+    testWidgets('选喵喵机 P2 会切换到对应预设并落库', (WidgetTester tester) async {
+      useTallSurface(tester);
+      final ProfileController c = controller();
+      await tester.pumpWidget(wrap(c, const SettingsPage()));
+
+      await tester.tap(find.byType(DropdownButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('喵喵机 P2').last);
+      await tester.pumpAndSettle();
+
+      expect(c.profile.id, 'paperang-p2');
+      expect(c.profile.printableDotsWidth, 576);
+      expect(c.profile.dpi, 300);
+      expect(c.profile.bodyFontPx, 27);
+      // 落库与跨重启恢复是 store 级语义（id 随 JSON 持久化），在
+      // profile_store_test 里验证；fake-async 区页面 fire-and-forget 的
+      // 真实 IO 完成事件不投递，widget 测试够不到那一步。
+    });
+
+    testWidgets('「添加机型…」只弹占位提示，不改档案', (WidgetTester tester) async {
+      useTallSurface(tester);
+      final ProfileController c = controller();
+      await tester.pumpWidget(wrap(c, const SettingsPage()));
+
+      await tester.tap(find.byType(DropdownButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('添加机型…').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('添加机型'), findsOneWidget);
+      expect(find.textContaining('后续版本'), findsOneWidget);
+      expect(c.profile.id, 'paperang-p1');
+
+      await tester.tap(find.text('知道了'));
+      await tester.pumpAndSettle();
+    });
+  });
+
   group('AppPrefsStore', () {
     test('偏好在注入目录里往返一致', () async {
       final AppPrefsStore store = AppPrefsStore(rootProvider: () async => tempRoot);

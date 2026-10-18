@@ -52,6 +52,15 @@ void main() {
       expect(loaded.isCalibrated, isTrue);
     });
 
+    test('机型选中态跨重启恢复：存 P2 预设后按 id 查表命中', () async {
+      await store().save(kPaperangP2Default);
+
+      final PaperProfile loaded = await store().load();
+      expect(loaded.id, 'paperang-p2');
+      // 设置页「机型」下拉的选中态就是靠这一步反查恢复的。
+      expect(builtInProfileById(loaded.id), same(kPaperangP2Default));
+    });
+
     test('存档不存在或内容坏掉时回落到默认档案，不抛', () async {
       expect((await store().load()).printableDotsWidth,
           kPaperangP1Default.printableDotsWidth);
