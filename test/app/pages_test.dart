@@ -3,6 +3,7 @@
 // 页面本身不做出图：输入页出图交给注入的假渲染器，分享动作已经由
 // test/share/share_service_test.dart 覆盖，这里只断言「页面接线对不对」。
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -17,6 +18,7 @@ import 'package:mistake_print/profiles/paper_profile.dart';
 import 'package:mistake_print/profiles/presets.dart';
 import 'package:mistake_print/profiles/profile_store.dart';
 import 'package:mistake_print/render/offscreen/print_renderer.dart';
+import 'package:mistake_print/render/raster/binarize.dart';
 import 'package:mistake_print/render/raster/png_encode.dart';
 import 'package:mistake_print/share/gallery_store.dart';
 import 'package:mistake_print/state/app_prefs.dart';
@@ -360,6 +362,26 @@ void main() {
     await tester.pump();
 
     expect(c.profile, kPaperangP1Default);
+  });
+
+  testWidgets('开发者模式重置：P2 用户重置后仍是 P2 内置预设', (WidgetTester tester) async {
+    useTallSurface(tester);
+    final ProfileController c = controller();
+    await tester.pumpWidget(wrap(c, const DeveloperSettingsPage()));
+
+    // 先切到 P2，再调乱一个裸参数。
+    unawaited(c.update(kPaperangP2Default));
+    await tester.pump();
+    sliderOf(tester, '严格阈值').onChangeEnd!(200);
+    await tester.pump();
+    expect(c.profile.threshold, 200);
+
+    await tester.tap(find.byTooltip('重置为默认值'));
+    await tester.pump();
+
+    expect(c.profile.id, 'paperang-p2');
+    expect(c.profile.printableDotsWidth, 576);
+    expect(c.profile.threshold, kStrictThreshold);
   });
 
   group('AppPrefsStore', () {
