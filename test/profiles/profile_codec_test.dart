@@ -126,4 +126,22 @@ void main() {
 
     expect(restored!.oversizeStrategy, OversizeStrategy.scale);
   });
+
+  test('P2/P2S 预设往返一致：宽度 576、dpi 300、字号 27/35 不被回落', () {
+    for (final PaperProfile preset in <PaperProfile>[
+      kPaperangP2Default,
+      kPaperangP2SDefault,
+    ]) {
+      final PaperProfile? restored =
+          decodeProfileJson(encodeProfileJson(preset));
+      expect(restored, isNotNull);
+      expect(restored!.id, preset.id);
+      expect(restored.dpi, 300);
+      expect(restored.printableDotsWidth, 576);
+      expect(restored.minFontPx, 21);
+      expect(restored.bodyFontPx, 27);
+      expect(restored.mathFontPx, 35);
+      expect(restored.threshold, kPaperangP1Default.threshold);
+    }
+  });
 }

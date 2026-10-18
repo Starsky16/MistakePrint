@@ -95,6 +95,7 @@ class PrintRenderer {
         enhanceMinMax: profile.enhanceMinMax,
         enhanceClahe: profile.enhanceClahe,
         withPhys: profile.writePhys,
+        dpi: profile.dpi,
       ),
     );
 
@@ -124,6 +125,7 @@ class _EncodeRequest {
     required this.enhanceMinMax,
     required this.enhanceClahe,
     required this.withPhys,
+    required this.dpi,
   });
 
   final Uint8List rgba;
@@ -136,6 +138,7 @@ class _EncodeRequest {
   final bool enhanceMinMax;
   final bool enhanceClahe;
   final bool withPhys;
+  final int dpi;
 }
 
 /// 二值化 + 1-bit PNG 编码。
@@ -152,5 +155,8 @@ class _EncodeRequest {
     enhanceMinMax: req.enhanceMinMax,
     enhanceClahe: req.enhanceClahe,
   );
-  return (encodeBitmap(black, withPhys: req.withPhys), countDark(black));
+  return (
+    encodeBitmap(black, withPhys: req.withPhys, dpi: req.dpi),
+    countDark(black),
+  );
 }

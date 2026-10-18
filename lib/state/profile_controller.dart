@@ -46,8 +46,12 @@ class ProfileController extends ChangeNotifier {
   Future<void> setThinLinePreset(ThinLinePreset preset) =>
       update(applyThinLinePreset(_profile, preset));
 
-  /// 一键回默认值（开发者模式顶栏的「重置」）。
-  Future<void> resetToDefault() => update(kPaperangP1Default);
+  /// 一键回出厂默认（开发者模式顶栏的「重置」）。
+  ///
+  /// 回到**当前机型**的内置预设：P2 用户调乱参数后重置不应被静默切回 P1。
+  /// 当前档案不属于任何内置机型（自定义档案）时回落 P1 出厂默认。
+  Future<void> resetToDefault() =>
+      update(builtInProfileById(_profile.id) ?? kPaperangP1Default);
 }
 
 /// 把 [ProfileController] 递给整棵树。

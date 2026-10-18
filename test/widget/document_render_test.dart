@@ -66,10 +66,11 @@ void main() {
     final List<List<bool>> black = binarize(cap, protectStructureLines: true);
     expect(countDark(black), greaterThan(0), reason: '样例不应出白图');
 
-    final Uint8List png =
-        encodeBitmap(black, withPhys: kPaperangP1Default.writePhys);
+    final Uint8List png = encodeBitmap(black,
+        withPhys: kPaperangP1Default.writePhys, dpi: kPaperangP1Default.dpi);
     writePng(kOutDir, 'p2-sample-1bit.png', png);
-    writePng(kOutDir, 'p2-sample-gray.png', encodeGray(cap, withPhys: kPaperangP1Default.writePhys));
+    writePng(kOutDir, 'p2-sample-gray.png',
+        encodeGray(cap, withPhys: kPaperangP1Default.writePhys, dpi: kPaperangP1Default.dpi));
 
     // 成功标准 4：直接读 IHDR 字节，不靠解码回读。
     final ByteData ihdr = ByteData.sublistView(png);
@@ -89,6 +90,7 @@ void main() {
       return encodeBitmap(
         binarize(cap, protectStructureLines: true),
         withPhys: kPaperangP1Default.writePhys,
+        dpi: kPaperangP1Default.dpi,
       );
     }
 
@@ -113,7 +115,8 @@ void main() {
     );
 
     writePng(kOutDir, 'p2-fraction-1bit.png',
-        encodeBitmap(protectedBlack, withPhys: kPaperangP1Default.writePhys));
+        encodeBitmap(protectedBlack,
+            withPhys: kPaperangP1Default.writePhys, dpi: kPaperangP1Default.dpi));
 
     // 分数线（\frac{a+b}{2} 的横线）与根号上划线都远长于 16 点；
     // longestDarkRun 取的是连续无断点的一段，因此该断言等价于「整行连通」。
@@ -139,7 +142,8 @@ void main() {
 
     debugPrint('[P2 超宽] 画面 ${cap.width}x${cap.height}');
     writePng(kOutDir, 'p2-oversize-1bit.png',
-        encodeBitmap(binarize(cap, protectStructureLines: true), withPhys: kPaperangP1Default.writePhys));
+        encodeBitmap(binarize(cap, protectStructureLines: true),
+            withPhys: kPaperangP1Default.writePhys, dpi: kPaperangP1Default.dpi));
 
     expect(cap.width, kPaperangP1Default.printableDotsWidth);
     expect(

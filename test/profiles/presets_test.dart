@@ -114,5 +114,78 @@ void main() {
       reason: '保护与提升都关掉正好落回「关闭」档，应当被认出来',
     );
   });
+
+  group('P2/P2S 内置预设', () {
+    test('P2 预设字段值（576 点 / 300 dpi，字号按 300/203 比例取整）', () {
+      expect(kPaperangP2Default.id, 'paperang-p2');
+      expect(kPaperangP2Default.name, '喵喵机 P2（出厂默认）');
+      expect(kPaperangP2Default.dpi, 300);
+      expect(kPaperangP2Default.paperWidthMm, 57);
+      expect(kPaperangP2Default.printableDotsWidth, 576);
+      expect(kPaperangP2Default.minFontPx, 21);
+      expect(kPaperangP2Default.bodyFontPx, 27);
+      expect(kPaperangP2Default.mathFontPx, 35);
+      expect(kPaperangP2Default.lineHeight, 1.3);
+      expect(kPaperangP2Default.threshold, kStrictThreshold);
+      expect(kPaperangP2Default.protectStructureLines, isTrue);
+      expect(kPaperangP2Default.structureRunLength, kStructureRunLength,
+          reason: '档位表唯一真相约束：偏离表值会让细线增强对 P2 失效');
+      expect(kPaperangP2Default.promoteSubDotStrokes, isTrue);
+      expect(kPaperangP2Default.enhanceMinMax, isFalse);
+      expect(kPaperangP2Default.enhanceClahe, isFalse);
+      expect(kPaperangP2Default.minLineWidthPx, 1);
+      expect(kPaperangP2Default.writePhys, isTrue);
+      expect(kPaperangP2Default.oversizeStrategy, OversizeStrategy.lineBreak);
+      expect(kPaperangP2Default.columns, 1);
+      expect(kPaperangP2Default.isCalibrated, isFalse);
+    });
+
+    test('P2S 与 P2 除 id/name 外逐字段一致（同硬件两代，数值单源）', () {
+      expect(kPaperangP2SDefault.id, 'paperang-p2s');
+      expect(kPaperangP2SDefault.name, '喵喵机 P2S（出厂默认）');
+      expect(kPaperangP2SDefault.dpi, kPaperangP2Default.dpi);
+      expect(kPaperangP2SDefault.paperWidthMm, kPaperangP2Default.paperWidthMm);
+      expect(
+          kPaperangP2SDefault.printableDotsWidth,
+          kPaperangP2Default.printableDotsWidth);
+      expect(kPaperangP2SDefault.minFontPx, kPaperangP2Default.minFontPx);
+      expect(kPaperangP2SDefault.bodyFontPx, kPaperangP2Default.bodyFontPx);
+      expect(kPaperangP2SDefault.mathFontPx, kPaperangP2Default.mathFontPx);
+      expect(kPaperangP2SDefault.lineHeight, kPaperangP2Default.lineHeight);
+      expect(kPaperangP2SDefault.threshold, kPaperangP2Default.threshold);
+      expect(kPaperangP2SDefault.protectStructureLines,
+          kPaperangP2Default.protectStructureLines);
+      expect(kPaperangP2SDefault.structureRunLength,
+          kPaperangP2Default.structureRunLength);
+      expect(kPaperangP2SDefault.promoteSubDotStrokes,
+          kPaperangP2Default.promoteSubDotStrokes);
+      expect(kPaperangP2SDefault.enhanceMinMax,
+          kPaperangP2Default.enhanceMinMax);
+      expect(kPaperangP2SDefault.enhanceClahe, kPaperangP2Default.enhanceClahe);
+      expect(kPaperangP2SDefault.minLineWidthPx,
+          kPaperangP2Default.minLineWidthPx);
+      expect(kPaperangP2SDefault.writePhys, kPaperangP2Default.writePhys);
+      expect(kPaperangP2SDefault.oversizeStrategy,
+          kPaperangP2Default.oversizeStrategy);
+      expect(kPaperangP2SDefault.columns, kPaperangP2Default.columns);
+      expect(kPaperangP2SDefault.isCalibrated, kPaperangP2Default.isCalibrated);
+    });
+
+    test('两张 P2 预设也都落在「标准」细线档（设置页分段按钮正常点亮）', () {
+      expect(detectThinLinePreset(kPaperangP2Default), ThinLinePreset.standard);
+      expect(
+          detectThinLinePreset(kPaperangP2SDefault), ThinLinePreset.standard);
+    });
+
+    test('内置机型表按 P1/P2/P2S 排列，按 id 查表命中，未知 id 返回 null', () {
+      expect(
+        kBuiltInProfiles.map((PaperProfile p) => p.id),
+        <String>['paperang-p1', 'paperang-p2', 'paperang-p2s'],
+      );
+      expect(builtInProfileById('paperang-p2'), same(kPaperangP2Default));
+      expect(builtInProfileById('paperang-p2s'), same(kPaperangP2SDefault));
+      expect(builtInProfileById('custom-xxx'), isNull);
+    });
+  });
 }
 

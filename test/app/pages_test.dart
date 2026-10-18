@@ -3,6 +3,7 @@
 // 页面本身不做出图：输入页出图交给注入的假渲染器，分享动作已经由
 // test/share/share_service_test.dart 覆盖，这里只断言「页面接线对不对」。
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -17,6 +18,7 @@ import 'package:mistake_print/profiles/paper_profile.dart';
 import 'package:mistake_print/profiles/presets.dart';
 import 'package:mistake_print/profiles/profile_store.dart';
 import 'package:mistake_print/render/offscreen/print_renderer.dart';
+import 'package:mistake_print/render/raster/binarize.dart';
 import 'package:mistake_print/render/raster/png_encode.dart';
 import 'package:mistake_print/share/gallery_store.dart';
 import 'package:mistake_print/state/app_prefs.dart';
@@ -33,6 +35,7 @@ PrintImage sampleImage() => PrintImage(
           (int y) => List<bool>.generate(384, (int x) => (x + y).isEven),
         ),
         withPhys: true,
+        dpi: 203,
       ),
       width: 384,
       height: 151,
@@ -319,7 +322,7 @@ void main() {
   });
 
   testWidgets('设置页连点版本号 7 次进开发者模式', (WidgetTester tester) async {
-    // 设置页多了「校准」分区后版本号落到了默认视口之外，先拉长画布再点。
+    // 设置项较多，版本号落在默认视口之外，先拉长画布再点。
     useTallSurface(tester);
     await tester.pumpWidget(wrap(controller(), const SettingsPage()));
 
@@ -359,6 +362,107 @@ void main() {
     await tester.pump();
 
     expect(c.profile, kPaperangP1Default);
+  });
+
+  testWidgets('开发者模式重置：P2 用户重置后仍是 P2 内置预设', (WidgetTester tester) async {
+    useTallSurface(tester);
+    final ProfileController c = controller();
+    await tester.pumpWidget(wrap(c, const DeveloperSettingsPage()));
+
+    // 先切到 P2，再调乱一个裸参数。
+    unawaited(c.update(kPaperangP2Default));
+    await tester.pump();
+    sliderOf(tester, '严格阈值').onChangeEnd!(200);
+    await tester.pump();
+    expect(c.profile.threshold, 200);
+
+    await tester.tap(find.byTooltip('重置为默认值'));
+    await tester.pump();
+
+    expect(c.profile.id, 'paperang-p2');
+    expect(c.profile.printableDotsWidth, 576);
+    expect(c.profile.threshold, kStrictThreshold);
+  });
+
+  group('机型下拉', () {
+    testWidgets('默认选中 P1', (WidgetTester tester) async {
+      useTallSurface(tester);
+      final ProfileController c = controller();
+      await tester.pumpWidget(wrap(c, const SettingsPage()));
+
+      expect(
+        tester.widget<DropdownButton<String>>(
+          find.byType(DropdownButton<String>),
+        ).value,
+        'paperang-p1',
+      );
+      expect(find.text('作业帮喵喵机 P1'), findsOneWidget);
+    });
+
+    testWidgets('选喵喵机 P2 会切换到对应预设并落库', (WidgetTester tester) async {
+      useTallSurface(tester);
+      final ProfileController c = controller();
+      await tester.pumpWidget(wrap(c, const SettingsPage()));
+
+      await tester.tap(find.byType(DropdownButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('喵喵机 P2').last);
+      await tester.pumpAndSettle();
+
+      expect(c.profile.id, 'paperang-p2');
+      expect(c.profile.printableDotsWidth, 576);
+      expect(c.profile.dpi, 300);
+      expect(c.profile.bodyFontPx, 27);
+      // 落库与跨重启恢复是 store 级语义（id 随 JSON 持久化），在
+      // profile_store_test 里验证；fake-async 区页面 fire-and-forget 的
+      // 真实 IO 完成事件不投递，widget 测试够不到那一步。
+    });
+
+    testWidgets('「添加机型…」只弹占位提示，不改档案', (WidgetTester tester) async {
+      useTallSurface(tester);
+      final ProfileController c = controller();
+      await tester.pumpWidget(wrap(c, const SettingsPage()));
+
+      await tester.tap(find.byType(DropdownButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('添加机型…').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('添加机型'), findsOneWidget);
+      expect(find.textContaining('后续版本'), findsOneWidget);
+      expect(c.profile.id, 'paperang-p1');
+
+      await tester.tap(find.text('知道了'));
+      await tester.pumpAndSettle();
+    });
+  });
+
+  testWidgets('P2 档下正文字号选项按 dpi 缩放（24/27/30/33/35 点）', (WidgetTester tester) async {
+    useTallSurface(tester);
+    final ProfileController c = controller();
+    await tester.pumpWidget(wrap(c, const SettingsPage()));
+
+    unawaited(c.update(kPaperangP2Default));
+    await tester.pump();
+
+    await tester.tap(find.byType(DropdownButton<double>).first);
+    await tester.pumpAndSettle();
+
+    // P1 选项 16/18/20/22/24 × 300/203 取整。
+    expect(find.text('24 点'), findsWidgets);
+    expect(find.text('27 点'), findsWidgets);
+    expect(find.text('30 点'), findsWidgets);
+    expect(find.text('33 点'), findsWidgets);
+    expect(find.text('35 点'), findsWidgets);
+    expect(find.text('16 点'), findsNothing);
+    expect(find.text('18 点'), findsNothing);
+
+    await tester.tap(find.text('24 点').last);
+    await tester.pumpAndSettle();
+
+    expect(c.profile.bodyFontPx, 24.0);
+    // 数学缩放比 35/27，24×35/27 ≈ 31.1 跌破 P2 的公式下限 35（=24×300/203），被夹住。
+    expect(c.profile.mathFontPx, 35.0);
   });
 
   group('AppPrefsStore', () {
