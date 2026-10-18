@@ -1,0 +1,42 @@
+name: 机型适配征集
+description: 反馈你的打印机型号，帮助我们把内置档位扩展到更多机型
+title: "[机型] "
+labels: ["机型适配"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！内置档位的证据越多，出图默认值就越准。带照片的试印结果最有价值。
+  - type: input
+    id: model
+    attributes:
+      label: 打印机型号
+      description: 例如 喵喵机 P3、P2 Pro，或其他品牌型号
+    validations:
+      required: true
+  - type: dropdown
+    id: paper-width
+    attributes:
+      label: 纸张宽度
+      options:
+        - "57 mm"
+        - "80 mm"
+        - "其他（请在下方说明）"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 打印宽度证据
+      description: >
+        官方规格页链接、或用当前版本打印一张图后描述实际可打印区域
+        （右侧白边多宽、内容是否被裁）。最好附试印照片。
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: 补充说明
+      description: 打印效果（黑度、细线、字号观感）、App 版本、其他问题；可附试印照片。
+    validations:
+      required: false
