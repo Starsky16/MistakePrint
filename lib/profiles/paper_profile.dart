@@ -173,3 +173,58 @@ const PaperProfile kPaperangP1Default = PaperProfile(
   columns: 1,
   isCalibrated: false,
 );
+
+/// 喵喵机 P2 的出厂默认档案。
+///
+/// 硬事实（paperang-p2-lib，证据级「极高」）：57mm 纸、300 dpi、576 点。
+/// 字号等长度默认值按 300/203 比例从 P1 出厂预设推导后取整：
+/// 最小可读 14→21、正文 18→27、公式 24→35。
+/// ⭐ `threshold` 与 `structureRunLength` **不**按比例缩放：前者是亮度域判决门限
+/// 与 dpi 无关；后者受「细线档位表是唯一真相」约束（见 `presets.dart` 的
+/// `kThinLinePresetTable` 注释），偏离表值会让细线增强档位对 P2 失效。
+/// 未经实机验证，待 P2 用户反馈后修订。
+const PaperProfile kPaperangP2Default = PaperProfile(
+  id: 'paperang-p2',
+  name: '喵喵机 P2（出厂默认）',
+  dpi: 300,
+  paperWidthMm: 57,
+  printableDotsWidth: 576,
+  minFontPx: 21,
+  bodyFontPx: 27,
+  mathFontPx: 35,
+  lineHeight: 1.3,
+  threshold: kStrictThreshold,
+  protectStructureLines: true,
+  structureRunLength: kStructureRunLength,
+  promoteSubDotStrokes: true,
+  enhanceMinMax: false,
+  enhanceClahe: false,
+  minLineWidthPx: 1,
+  writePhys: true,
+  oversizeStrategy: OversizeStrategy.lineBreak,
+  columns: 1,
+  isCalibrated: false,
+);
+
+/// 喵喵机 P2S：与 P2 同硬件（57mm 纸、300 dpi、576 点），数值字段单源复用 P2，
+/// 仅 id 与名称独立——机型下拉的选中态靠 id 持久化恢复，两代机型各自记住选择。
+final PaperProfile kPaperangP2SDefault = kPaperangP2Default.copyWith(
+  id: 'paperang-p2s',
+  name: '喵喵机 P2S（出厂默认）',
+);
+
+/// 内置机型预设（设置页「机型」下拉的唯一来源，顺序即界面顺序）。
+final List<PaperProfile> kBuiltInProfiles = <PaperProfile>[
+  kPaperangP1Default,
+  kPaperangP2Default,
+  kPaperangP2SDefault,
+];
+
+/// 按机型 id 查内置预设；不属于任何内置机型（开发者改档、第二期自定义机型）
+/// 返回 null，由调用方决定回落展示。
+PaperProfile? builtInProfileById(String id) {
+  for (final PaperProfile profile in kBuiltInProfiles) {
+    if (profile.id == id) return profile;
+  }
+  return null;
+}
