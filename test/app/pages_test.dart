@@ -4,6 +4,7 @@
 // test/share/share_service_test.dart 覆盖，这里只断言「页面接线对不对」。
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +18,7 @@ import 'package:mistake_print/profiles/presets.dart';
 import 'package:mistake_print/profiles/profile_store.dart';
 import 'package:mistake_print/render/offscreen/print_renderer.dart';
 import 'package:mistake_print/render/raster/png_encode.dart';
+import 'package:mistake_print/share/gallery_store.dart';
 import 'package:mistake_print/state/app_prefs.dart';
 import 'package:mistake_print/state/profile_controller.dart';
 
@@ -72,6 +74,37 @@ class FakePrefsStore extends AppPrefsStore {
 
   @override
   Future<void> save(AppPrefs prefs) async => saved = prefs;
+}
+
+/// 内存假相册：save 立即返回一条记录，不碰平台通道。
+class FakeGalleryStore extends GalleryStore {
+  FakeGalleryStore();
+
+  int savedCount = 0;
+
+  @override
+  Future<GalleryImage> save(Uint8List png, {required String name}) async {
+    savedCount++;
+    return GalleryImage(
+      id: '$savedCount',
+      uri: 'content://media/external/images/media/$savedCount',
+      name: name,
+      size: png.length,
+      date: DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  @override
+  Future<List<GalleryImage>> list() async => const <GalleryImage>[];
+
+  @override
+  Future<Uint8List> readBytes(String uri) async => Uint8List(0);
+
+  @override
+  Future<void> delete(String uri) async {}
+
+  @override
+  Future<void> deleteAll() async {}
 }
 
 void main() {
@@ -217,51 +250,20 @@ void main() {
       expect(renderer.received.single, isNot(contains('解：')));
       expect(renderer.received.single, r'求 \(\frac{1}{2}\) 的单调区间。');
     });
-
-    testWidgets('未校准提示条可关掉', (WidgetTester tester) async {
-      await tester.pumpWidget(wrap(
-        controller(),
-        InputPage(
-          renderer: FakeRenderer(sampleImage()),
-          prefsStore: AppPrefsStore(rootProvider: () async => tempRoot),
-        ),
-      ));
-
-      expect(find.textContaining('当前用的是默认参数'), findsOneWidget);
-
-      await tester.tap(find.byTooltip('不再提示'));
-      await tester.pump();
-
-      expect(find.textContaining('当前用的是默认参数'), findsNothing);
-    });
-
-    testWidgets('已校准的档案不再出现提示条', (WidgetTester tester) async {
-      final ProfileController c = controller();
-      // update 会真的落盘，必须放进 runAsync，否则在 fake-async 区里永久挂起。
-      await tester.runAsync(
-        () => c.update(kPaperangP1Default.copyWith(isCalibrated: true)),
-      );
-      await tester.pumpWidget(wrap(
-        c,
-        InputPage(
-          renderer: FakeRenderer(sampleImage()),
-          prefsStore: AppPrefsStore(rootProvider: () async => tempRoot),
-        ),
-      ));
-
-      expect(find.textContaining('当前用的是默认参数'), findsNothing);
-    });
   });
 
   testWidgets('预览页展示出图信息与分享入口', (WidgetTester tester) async {
+    final FakeGalleryStore store = FakeGalleryStore();
     await tester.pumpWidget(wrap(
       controller(),
-      PreviewPage(image: sampleImage()),
+      PreviewPage(image: sampleImage(), galleryStore: store),
     ));
+    await tester.pumpAndSettle();
 
     expect(find.textContaining('384 × 151 点'), findsOneWidget);
     expect(find.textContaining('排版 2 轮'), findsOneWidget);
-    expect(find.text('分享到喵喵机 App'), findsOneWidget);
+    expect(find.text('分享 / 发送图片'), findsOneWidget);
+    expect(store.savedCount, 1, reason: '进入预览页即写入相册');
   });
 
   testWidgets('设置页选档位会写回档案', (WidgetTester tester) async {
@@ -280,17 +282,31 @@ void main() {
     expect(find.textContaining('只做阈值判定'), findsOneWidget);
   });
 
-  testWidgets('设置页有打印校准入口，点进去是校准向导', (WidgetTester tester) async {
+  testWidgets('设置页可选正文字号并写回档案', (WidgetTester tester) async {
     useTallSurface(tester);
-    await tester.pumpWidget(wrap(controller(), const SettingsPage()));
+    final ProfileController c = controller();
+    await tester.pumpWidget(wrap(c, const SettingsPage()));
 
-    expect(find.text('打印校准'), findsOneWidget);
+    expect(c.profile.bodyFontPx, kPaperangP1Default.bodyFontPx);
 
-    await tester.tap(find.text('打印校准'));
+    // 点击 DropdownButton 展开，然后选「20 点」
+    await tester.tap(find.byType(DropdownButton<double>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('20 点'));
     await tester.pumpAndSettle();
 
-    expect(find.text('汇总预览'), findsOneWidget);
-    expect(find.text('生成校准条并分享'), findsOneWidget);
+    expect(c.profile.bodyFontPx, 20.0);
+    // 公式字号跟随正文同比例缩放：20 × (24/18) ≈ 26.7。
+    expect(c.profile.mathFontPx, closeTo(20 * 24 / 18, 0.01));
+
+    // 选 16 点时缩放结果 21.3 会跌破公式字号下限，必须被夹到 24。
+    await tester.tap(find.byType(DropdownButton<double>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('16 点'));
+    await tester.pumpAndSettle();
+
+    expect(c.profile.bodyFontPx, 16.0);
+    expect(c.profile.mathFontPx, 24.0);
   });
 
   testWidgets('设置页有输出图片管理入口', (WidgetTester tester) async {
@@ -348,16 +364,11 @@ void main() {
   group('AppPrefsStore', () {
     test('偏好在注入目录里往返一致', () async {
       final AppPrefsStore store = AppPrefsStore(rootProvider: () async => tempRoot);
-      expect((await store.load()).calibrationHintDismissed, isFalse);
       expect((await store.load()).outputMode, OutputMode.fullText);
 
-      await store.save(const AppPrefs(
-        calibrationHintDismissed: true,
-        outputMode: OutputMode.stemOnly,
-      ));
+      await store.save(const AppPrefs(outputMode: OutputMode.stemOnly));
 
       final AppPrefs loaded = await store.load();
-      expect(loaded.calibrationHintDismissed, isTrue);
       expect(loaded.outputMode, OutputMode.stemOnly);
     });
 
@@ -366,7 +377,6 @@ void main() {
       await (await store.file()).writeAsString('{ 半个 JSON');
 
       final AppPrefs loaded = await store.load();
-      expect(loaded.calibrationHintDismissed, isFalse);
       expect(loaded.outputMode, OutputMode.fullText);
     });
   });

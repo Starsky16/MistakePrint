@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'enhance.dart';
 import 'raw_capture.dart';
 
 /// 二值化严格阈值：笔画主体。
@@ -48,25 +49,40 @@ const int kPromoteMaxRunLength = 2;
 /// **1 点宽**的实线。超采样后细竖画仍是覆盖率约 0.4 的灰带，只抬阈值救不回来
 /// （覆盖率 0.4 的像素灰度约 153，落在 150 之外），提升把它按位置还原成实心笔画，
 /// 而不是丢掉或糊成台阶（计划 §5.4a）。
+///
+/// [enhanceMinMax] / [enhanceClahe] 开启时，在亮度图上先做增强再判决（计划 §2 A1）。
+/// 两项默认关闭；都关时与不开增强的旧行为**逐字节一致**。
 List<List<bool>> binarize(
   RawCapture cap, {
   bool protectStructureLines = false,
   int strictThreshold = kStrictThreshold,
   int structureRunLength = kStructureRunLength,
   bool promoteSubDotStrokes = false,
+  bool enhanceMinMax = false,
+  bool enhanceClahe = false,
 }) {
   final Uint8List lum = luminanceOf(cap);
   final int w = cap.width;
   final int h = cap.height;
 
+  // 增强算子挂在亮度之后、阈值判决之前（计划 §2 A1）：两项都关时原样透传，
+  // 保证「全关 = 逐字节不变」。
+  final Uint8List gray = enhanceLuminance(
+    lum,
+    w,
+    h,
+    normalizeMinMax: enhanceMinMax,
+    brightClahe: enhanceClahe,
+  );
+
   final List<List<bool>> black = List<List<bool>>.generate(
     h,
     (int y) =>
-        List<bool>.generate(w, (int x) => lum[y * w + x] < strictThreshold),
+        List<bool>.generate(w, (int x) => gray[y * w + x] < strictThreshold),
   );
 
   if (protectStructureLines) {
-    _forEachGrayRun(lum, black, w, h, (int y, int start, int end) {
+    _forEachGrayRun(gray, black, w, h, (int y, int start, int end) {
       if (end - start >= structureRunLength) {
         for (int i = start; i < end; i++) {
           black[y][i] = true;
@@ -76,7 +92,7 @@ List<List<bool>> binarize(
   }
 
   if (promoteSubDotStrokes) {
-    _forEachGrayRun(lum, black, w, h, (int y, int start, int end) {
+    _forEachGrayRun(gray, black, w, h, (int y, int start, int end) {
       if (end - start > kPromoteMaxRunLength) return;
       double mass = 0;
       int darkest = start;

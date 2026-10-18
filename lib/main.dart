@@ -30,7 +30,7 @@ class _MistakePrintAppState extends State<MistakePrintApp> {
   @override
   void initState() {
     super.initState();
-    // 读存档：没读到也不会卡住界面，未校准的默认档案本来就能直接出图。
+    // 读存档：没读到也不会卡住界面，默认档案本来就能直接出图。
     unawaited(_controller.load());
   }
 

@@ -5,10 +5,9 @@ import 'package:flutter/material.dart';
 import '../profiles/paper_profile.dart';
 import '../profiles/presets.dart';
 import '../render/raster/binarize.dart';
-import '../share/png_file_store.dart';
+import '../share/gallery_store.dart';
 import '../state/profile_controller.dart';
 import 'app_version.dart';
-import 'calibration/calibration_wizard_page.dart';
 import 'developer_settings_page.dart';
 import 'image_store_page.dart';
 
@@ -26,22 +25,6 @@ class SettingsPage extends StatelessWidget {
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         children: <Widget>[
-          const _SectionHeader('校准'),
-          ListTile(
-            title: const Text('打印校准'),
-            subtitle: Text(
-              profile.isCalibrated
-                  ? '已校准过。想复校就再打一张校准条。'
-                  : '打一张校准条，把宽度、字号、细线一次调准（约 200mm）。',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (BuildContext context) => const CalibrationWizardPage(),
-              ),
-            ),
-          ),
-          const Divider(),
           const _SectionHeader('细线增强'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -70,22 +53,10 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
           const Divider(),
+          const _SectionHeader('正文字号'),
+          _BodyFontTile(profile: profile, controller: controller),
+          const Divider(),
           const _SectionHeader('输出'),
-          ListTile(
-            title: const Text('点阵宽度'),
-            subtitle: Text(
-              '${profile.printableDotsWidth} 点 · '
-              '${profile.isCalibrated ? '已校准' : '默认值，尚未校准'}',
-            ),
-          ),
-          SwitchListTile(
-            title: const Text('写入打印机分辨率元数据'),
-            subtitle: const Text('打出来偏大或偏小就切一下这一项（影响 PNG 的 pHYs 块）'),
-            value: profile.writePhys,
-            onChanged: (bool value) => unawaited(
-              controller.update(profile.copyWith(writePhys: value)),
-            ),
-          ),
           const _ImageStoreEntryTile(),
           const Divider(),
           const _SectionHeader('关于'),
@@ -111,6 +82,67 @@ class SettingsPage extends StatelessWidget {
       case null:
         return '当前参数由开发者模式自定义，不属于任何一个档位。';
     }
+  }
+}
+
+/// 正文字号下拉：一级设置项。
+///
+/// 档位选项是常见字号。如果当前值不在选项里（例如由开发者模式自定义），下拉显示
+///「当前值（自定义）」，用户仍可点选一个档位恢复。
+class _BodyFontTile extends StatelessWidget {
+  const _BodyFontTile({required this.profile, required this.controller});
+
+  final PaperProfile profile;
+  final ProfileController controller;
+
+  static const List<double> _options = <double>[16, 18, 20, 22, 24];
+
+  /// 公式字号下限：小字号分数线会被二值化抹掉（见 `PaperProfile.mathFontPx` 注释）。
+  static const double _minMathFontPx = 24;
+
+  @override
+  Widget build(BuildContext context) {
+    final double value = profile.bodyFontPx;
+    final bool isPreset = _options.contains(value);
+    final List<DropdownMenuItem<double>> items = <DropdownMenuItem<double>>[
+      for (final double option in _options)
+        DropdownMenuItem<double>(
+          value: option,
+          child: Text('${option.toStringAsFixed(0)} 点'),
+        ),
+    ];
+
+    return ListTile(
+      title: const Text('正文字号'),
+      subtitle: Text(
+        isPreset
+            ? '正文字体大小'
+            : '当前 ${value.toStringAsFixed(0)} 点（开发者自定义）',
+      ),
+      trailing: DropdownButton<double>(
+        value: isPreset ? value : null,
+        hint: Text('${value.toStringAsFixed(0)} 点'),
+        items: items,
+        onChanged: (double? newValue) {
+          if (newValue == null) return;
+          // 正文字号不能小于最小可读字号下限；公式字号跟随正文同比例缩放，
+          // 但不得低于下限——小字号的分数线会被二值化抹掉。
+          final double minFontPx = profile.minFontPx;
+          final double mathScale = profile.mathFontPx / profile.bodyFontPx;
+          final double nextMinFontPx =
+              minFontPx > newValue ? newValue : minFontPx;
+          final double nextMathFontPx =
+              mathScale * newValue < _minMathFontPx
+                  ? _minMathFontPx
+                  : mathScale * newValue;
+          unawaited(controller.update(profile.copyWith(
+            bodyFontPx: newValue,
+            minFontPx: nextMinFontPx,
+            mathFontPx: nextMathFontPx,
+          )));
+        },
+      ),
+    );
   }
 }
 
@@ -140,7 +172,7 @@ class _ImageStoreEntryTile extends StatefulWidget {
 }
 
 class _ImageStoreEntryTileState extends State<_ImageStoreEntryTile> {
-  final PngFileStore _store = PngFileStore();
+  final GalleryStore _store = const GalleryStore();
   int? _totalSize;
 
   @override
@@ -149,7 +181,7 @@ class _ImageStoreEntryTileState extends State<_ImageStoreEntryTile> {
     _querySize();
   }
 
-  /// 静默容错：拿不到目录的环境（如 widget 测试没有平台通道）不报错，
+  /// 静默容错：拿不到相册的环境（如 widget 测试没有平台通道）不报错，
   /// 入口本身照常可用。
   Future<void> _querySize() async {
     try {

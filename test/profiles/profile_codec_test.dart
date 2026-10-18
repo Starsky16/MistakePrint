@@ -24,6 +24,8 @@ PaperProfile calibratedProfile() => kPaperangP1Default.copyWith(
       protectStructureLines: false,
       structureRunLength: 6,
       minLineWidthPx: 2,
+      enhanceMinMax: true,
+      enhanceClahe: true,
       writePhys: false,
       oversizeStrategy: OversizeStrategy.scale,
       columns: 2,
@@ -50,6 +52,8 @@ void main() {
     expect(p.protectStructureLines, source.protectStructureLines);
     expect(p.structureRunLength, source.structureRunLength);
     expect(p.minLineWidthPx, source.minLineWidthPx);
+    expect(p.enhanceMinMax, source.enhanceMinMax);
+    expect(p.enhanceClahe, source.enhanceClahe);
     expect(p.writePhys, source.writePhys);
     expect(p.oversizeStrategy, source.oversizeStrategy);
     expect(p.columns, source.columns);

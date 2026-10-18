@@ -1,95 +1,60 @@
-import 'dart:io';
+import 'package:flutter/services.dart';
 
-import 'package:flutter/foundation.dart';
-import 'package:share_plus/share_plus.dart';
-
-import '../render/offscreen/print_renderer.dart';
-import 'png_file_store.dart';
+import 'gallery_store.dart';
 
 /// 一次分享的结局。
 enum ShareOutcome {
-  /// 用户在系统面板里选了目标 App。
+  /// 已把图交给系统分享面板（面板里用户选了谁，我方拿不到回执）。
   shared,
 
-  /// 用户划走了面板，没有分享。
-  dismissed,
-
-  /// 当前环境拿不到回执（部分机型与系统版本如此），不代表没有分享成功。
+  /// 系统里没有任何可接收 image/png 的应用。
   unavailable,
 
-  /// 拉起面板失败；图片仍在临时目录里，用户可以手动取用。
+  /// 拉起面板失败（通道异常等）；图仍在相册里，可重试。
   failed,
 }
 
-/// 把一张图片交给系统分享面板的动作。
-///
-/// 抽成函数类型是为了让测试注入假实现。这里**没用** share_plus 自己的
-/// `SharePlus.custom(platform)` 注入点：它要的是 `SharePlatform`，而这个类型没有
-/// 从 `share_plus` 导出（只导出了 `ShareParams` / `XFile` / `ShareResult` 等），
-/// 走那条路就得把 `share_plus_platform_interface` 提成直接依赖，只为测试不值当。
-typedef ShareImageCallback = Future<ShareResult> Function(XFile file);
-
-/// 分享结果 + 落盘位置。
+/// 分享结果。
 class ShareReport {
-  const ShareReport(this.outcome, this.file, {this.error});
+  const ShareReport(this.outcome, this.image, {this.error});
 
   final ShareOutcome outcome;
 
-  /// 图片落盘位置。任何结局下都有效 —— 失败时它就是「图还在哪」的答案。
-  final File file;
+  /// 被分享的相册记录；任何结局下都有效（分享源就是它）。
+  final GalleryImage image;
 
   /// [ShareOutcome.failed] 时的原始异常，供开发者模式展示。
   final Object? error;
 
   @override
-  String toString() => 'ShareReport(${outcome.name}, ${file.path})';
+  String toString() => 'ShareReport(${outcome.name}, ${image.uri})';
 }
 
-/// 把出图结果交给系统分享面板（计划 §5.6「分享」、§4 P3 主路径）。
+/// 把相册里的一张图交给系统分享面板（通用分享设计）。
 ///
-/// 降级顺序只做了前两级 —— 定向 `cn.paperang.mm` 与「存相册后手动导入」见计划
-/// P3 实施笔记 D1：`android_intent_plus` 的原生层只支持基础类型，会把
-/// `Intent.EXTRA_STREAM` 当成字符串塞进 bundle，`content://` URI 送不到接收方，
-/// 定向分享要等 P5 有真机时再定。
-///
-/// 1. 落盘到 `<temp>/mistake_print/`（[PngFileStore]）；
-/// 2. 拉起系统分享面板；
-/// 3. 面板失败时保留文件并回报路径，由界面提示用户手动取用。
+/// 用标准媒体 URI + `Intent.ACTION_SEND` + 系统 chooser，**不 setPackage**：面板里
+/// 会出现任意图片 / 打印类应用（通用，不绑死喵喵机）。原生细节在 [kGalleryChannel]
+/// 的 `share` 方法里；`dismissed` 不再可观测（我方不持有 chooser 回执），故结局
+/// 只剩三种。
 class ShareService {
-  const ShareService({
-    this.store = const PngFileStore(),
-    this.shareImage = shareViaSystemPanel,
-  });
+  const ShareService({this.channel = kGalleryChannel});
 
-  final PngFileStore store;
+  final MethodChannel channel;
 
-  @visibleForTesting
-  final ShareImageCallback shareImage;
-
-  /// 默认分享动作：走 share_plus 的系统面板。
-  static Future<ShareResult> shareViaSystemPanel(XFile file) =>
-      SharePlus.instance.share(ShareParams(files: <XFile>[file]));
-
-  /// 落盘后拉起系统分享面板。
-  Future<ShareReport> share(PrintImage image) async {
-    final File file = await store.write(
-      image.png,
-      width: image.width,
-      height: image.height,
-    );
+  /// 拉起系统面板分享 [image]。
+  Future<ShareReport> share(GalleryImage image) async {
     try {
-      // 显式给 MIME，不依赖插件按扩展名猜；接收方据此判断能不能收这张图。
-      final ShareResult result =
-          await shareImage(XFile(file.path, mimeType: 'image/png'));
-      return ShareReport(_outcomeOf(result.status), file);
+      final String? status =
+          await channel.invokeMethod<String>('share', <String, Object?>{
+        'uri': image.uri,
+        'mimeType': 'image/png',
+      });
+      return ShareReport(
+        status == 'unavailable' ? ShareOutcome.unavailable : ShareOutcome.shared,
+        image,
+      );
     } on Object catch (error) {
-      return ShareReport(ShareOutcome.failed, file, error: error);
+      return ShareReport(ShareOutcome.failed, image, error: error);
     }
   }
-
-  static ShareOutcome _outcomeOf(ShareResultStatus status) => switch (status) {
-        ShareResultStatus.success => ShareOutcome.shared,
-        ShareResultStatus.dismissed => ShareOutcome.dismissed,
-        ShareResultStatus.unavailable => ShareOutcome.unavailable,
-      };
 }

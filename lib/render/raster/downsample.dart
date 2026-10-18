@@ -18,14 +18,34 @@ const int kSupersampleMaxFactor = 3;
 /// 量级：384 点宽下 ≤3472 点取 3×、≤7812 点取 2×、更长取 1×。
 const int kSupersamplePixelBudget = 12000000;
 
-/// 按总像素预算推出本次出图的超采样倍率。
+/// 引擎光栅化纹理边长上限的兜底常数（点）。
 ///
-/// 高内容自动降精度（计划 §5.4a 待拍板第 5 项），宁可细线质量回落也不 OOM。
-int supersampleFactor({required int widthDots, required int heightDots}) {
+/// 引擎把离屏画面交给 GPU 的 `toImage`，任一边超过 `GL_MAX_TEXTURE_SIZE` 时会
+/// **静默等比缩小**，出图尺寸断言必然炸。真值由原生侧 EGL 查询（见
+/// `OffscreenCanvas.queryMaxTextureSize`），查询失败（旧系统/通道异常）时退回
+/// 这个保守值——主流 Android GPU 的纹理上限至少 4096。
+const int kFallbackMaxTextureSize = 4096;
+
+/// 按总像素预算与纹理上限推出本次出图的超采样倍率。
+///
+/// 高内容自动降精度（计划 §5.4a 待拍板第 5 项），宁可细线质量回落也不 OOM；
+/// 同时受 [maxTextureSize] 约束：`S ≤ 纹理上限 / max(宽, 高)`，物理边长
+/// `S×宽`、`S×高` 都必须落在 GPU 能吃下的范围里。1× 仍超上限时本函数返回 1，
+/// 由调用方（`offscreen_canvas.dart`）在光栅化前给出「请拆分题目」的明确报错。
+int supersampleFactor({
+  required int widthDots,
+  required int heightDots,
+  int? maxTextureSize,
+}) {
   if (widthDots <= 0 || heightDots <= 0) return 1;
   final double raw =
       math.sqrt(kSupersamplePixelBudget / (widthDots * heightDots));
-  return raw.floor().clamp(1, kSupersampleMaxFactor);
+  final int byBudget = raw.floor().clamp(1, kSupersampleMaxFactor);
+  final int tex = maxTextureSize ?? kFallbackMaxTextureSize;
+  final int byTexture = math
+      .min(tex ~/ widthDots, tex ~/ heightDots)
+      .clamp(1, kSupersampleMaxFactor);
+  return math.min(byBudget, byTexture);
 }
 
 /// 盒式降采样：把 `factor × factor` 的像素块取算术平均。

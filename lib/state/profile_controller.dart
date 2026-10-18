@@ -16,7 +16,7 @@ class ProfileController extends ChangeNotifier {
   PaperProfile _profile = kPaperangP1Default;
   bool _loaded = false;
 
-  /// 当前档案。首次 [load] 之前是保守默认值，未校准机型也能直接出图。
+  /// 当前档案。首次 [load] 之前是保守默认值，默认档案拿来就能直接出图。
   PaperProfile get profile => _profile;
 
   /// 当前档案对应的细线增强档位；裸参数被改过则为 null（自定义）。
@@ -46,7 +46,7 @@ class ProfileController extends ChangeNotifier {
   Future<void> setThinLinePreset(ThinLinePreset preset) =>
       update(applyThinLinePreset(_profile, preset));
 
-  /// 一键回默认值（向导里的「重置」）。
+  /// 一键回默认值（开发者模式顶栏的「重置」）。
   Future<void> resetToDefault() => update(kPaperangP1Default);
 }
 
