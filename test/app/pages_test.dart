@@ -33,6 +33,7 @@ PrintImage sampleImage() => PrintImage(
           (int y) => List<bool>.generate(384, (int x) => (x + y).isEven),
         ),
         withPhys: true,
+        dpi: 203,
       ),
       width: 384,
       height: 151,
