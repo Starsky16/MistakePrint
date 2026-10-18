@@ -105,12 +105,30 @@ void main() {
   });
 
   group('超采样限流', () {
-    test('档位边界：384 点宽下 3472 点取 3×、7812 点取 2×、12000 点取 1×', () {
-      expect(supersampleFactor(widthDots: 384, heightDots: 3472), 3);
-      expect(supersampleFactor(widthDots: 384, heightDots: 3473), 2);
-      expect(supersampleFactor(widthDots: 384, heightDots: 7812), 2);
-      expect(supersampleFactor(widthDots: 384, heightDots: 7813), 1);
-      expect(supersampleFactor(widthDots: 384, heightDots: 12000), 1);
+    test('档位边界（纯像素预算，纹理放开）：384 点宽下 3472 点取 3×、7812 点取 2×、12000 点取 1×', () {
+      // 传超大纹理放开约束，隔离出预算公式的档位边界；默认兜底 4096 的纹理
+      // 行为由下面几条专项用例覆盖。
+      final int tex = 1 << 30;
+      expect(
+        supersampleFactor(widthDots: 384, heightDots: 3472, maxTextureSize: tex),
+        3,
+      );
+      expect(
+        supersampleFactor(widthDots: 384, heightDots: 3473, maxTextureSize: tex),
+        2,
+      );
+      expect(
+        supersampleFactor(widthDots: 384, heightDots: 7812, maxTextureSize: tex),
+        2,
+      );
+      expect(
+        supersampleFactor(widthDots: 384, heightDots: 7813, maxTextureSize: tex),
+        1,
+      );
+      expect(
+        supersampleFactor(widthDots: 384, heightDots: 12000, maxTextureSize: tex),
+        1,
+      );
     });
 
     test('短内容恒取上限 3×，不越界', () {
@@ -121,6 +139,58 @@ void main() {
     test('宽高非正时回落到 1，不抛异常', () {
       expect(supersampleFactor(widthDots: 0, heightDots: 100), 1);
       expect(supersampleFactor(widthDots: 384, heightDots: 0), 1);
+    });
+
+    test('纹理上限收紧档位：1732 点高在 4096 上限下从 3× 降到 2×', () {
+      // 真机 bug 复算：1732 点高按预算给 3×，物理高 5196 超过纹理上限 4096，
+      // 引擎静默等比缩小（1152→908）炸出图断言；现在档位必须先被收紧。
+      expect(
+        supersampleFactor(
+          widthDots: 384,
+          heightDots: 1732,
+          maxTextureSize: 4096,
+        ),
+        2,
+      );
+    });
+
+    test('1× 也放不下纹理时返回 1，由调用方给出拆题报错', () {
+      expect(
+        supersampleFactor(
+          widthDots: 384,
+          heightDots: 5000,
+          maxTextureSize: 4096,
+        ),
+        1,
+      );
+    });
+
+    test('不传 maxTextureSize 时用兜底常数 4096 约束', () {
+      // 4200 点高兜底下只能 1×（物理高 4200 仍超限，报错交给调用方）。
+      expect(supersampleFactor(widthDots: 384, heightDots: 4200), 1);
+      // 1732 点高兜底下与真值 4096 相同，取 2×。
+      expect(supersampleFactor(widthDots: 384, heightDots: 1732), 2);
+    });
+
+    test('宽度也受纹理约束，但不越过像素预算档', () {
+      // 宽度约束：2048 点宽在 4096 上限下最多 2×。
+      expect(
+        supersampleFactor(
+          widthDots: 2048,
+          heightDots: 100,
+          maxTextureSize: 4096,
+        ),
+        2,
+      );
+      // 大纹理不放大档位：预算给 2× 时即便上限 8192 也仍是 2×。
+      expect(
+        supersampleFactor(
+          widthDots: 384,
+          heightDots: 3473,
+          maxTextureSize: 8192,
+        ),
+        2,
+      );
     });
   });
 }

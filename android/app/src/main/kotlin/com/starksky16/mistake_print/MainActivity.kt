@@ -7,6 +7,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaScannerConnection
 import android.net.Uri
+import android.opengl.EGL14
+import android.opengl.EGLConfig
+import android.opengl.GLES20
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -27,6 +30,8 @@ import java.util.concurrent.TimeUnit
  *  - read              ：按媒体 uri 读回字节（供预览）
  *  - delete / deleteAll：删除相册里本应用的图片（同时删除媒体库记录与实体文件）
  *  - share             ：ACTION_SEND + 系统 chooser（不 setPackage，保持通用）
+ *  - maxTextureSize    ：查询 GPU 最大纹理边长 GL_MAX_TEXTURE_SIZE（离屏出图的
+ *    超采样档位约束用；失败返回 null，Dart 侧回落常数 4096）
  *
  * 删除说明：`content://media/...` 条目即媒体库记录本身，ContentResolver.delete 由
  * MediaProvider 一次完成「删记录 + 删文件」，不会留下死链或孤儿文件；本应用只删
@@ -93,6 +98,7 @@ class MainActivity : FlutterActivity(), MethodChannel.MethodCallHandler {
                     }
                 }
             }
+            "maxTextureSize" -> result.success(queryMaxTextureSize())
             else -> result.notImplemented()
         }
     }
@@ -321,6 +327,75 @@ class MainActivity : FlutterActivity(), MethodChannel.MethodCallHandler {
         }
         startActivity(chooser)
         return "shared"
+    }
+
+    /**
+     * 查询 GPU 最大纹理边长（GL_MAX_TEXTURE_SIZE）。
+     *
+     * 用 EGL pbuffer 建一个 1×1 的离屏上下文取真值——引擎把离屏画面交给 GPU 时
+     * 任一边超过该值会**静默等比缩小**，Dart 侧超采样档位必须先按它收紧。任何
+     * 一步失败都返回 null（不是 0），由 Dart 侧回落常数兜底。
+     *
+     * 注意：默认 display 与 Flutter 引擎共享，**不调 eglTerminate**（会作废引擎
+     * 自己的上下文），只销毁本次自建的 surface / context。
+     */
+    private fun queryMaxTextureSize(): Int? {
+        val display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
+        if (display == EGL14.EGL_NO_DISPLAY) return null
+        val version = IntArray(2)
+        if (!EGL14.eglInitialize(display, version, 0, version, 1)) return null
+
+        val configAttribs = intArrayOf(
+            EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+            EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT,
+            EGL14.EGL_NONE,
+        )
+        val configs = arrayOfNulls<EGLConfig>(1)
+        val numConfigs = IntArray(1)
+        if (!EGL14.eglChooseConfig(display, configAttribs, 0, configs, 0, 1, numConfigs, 0) ||
+            numConfigs[0] == 0
+        ) {
+            return null
+        }
+        val surface = EGL14.eglCreatePbufferSurface(
+            display,
+            configs[0],
+            intArrayOf(EGL14.EGL_WIDTH, 1, EGL14.EGL_HEIGHT, 1, EGL14.EGL_NONE),
+            0,
+        )
+        if (surface == EGL14.EGL_NO_SURFACE) return null
+        val context = EGL14.eglCreateContext(
+            display,
+            configs[0],
+            EGL14.EGL_NO_CONTEXT,
+            intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE),
+            0,
+        )
+        if (context == EGL14.EGL_NO_CONTEXT) {
+            EGL14.eglDestroySurface(display, surface)
+            return null
+        }
+
+        val size: Int? = try {
+            if (!EGL14.eglMakeCurrent(display, surface, surface, context)) {
+                null
+            } else {
+                val value = IntArray(1)
+                GLES20.glGetIntegerv(GLES20.GL_MAX_TEXTURE_SIZE, value, 0)
+                if (value[0] > 0) value[0] else null
+            }
+        } finally {
+            // 解绑后只清理本次自建资源，display 保留（引擎还在用）。
+            EGL14.eglMakeCurrent(
+                display,
+                EGL14.EGL_NO_SURFACE,
+                EGL14.EGL_NO_SURFACE,
+                EGL14.EGL_NO_CONTEXT,
+            )
+            EGL14.eglDestroyContext(display, context)
+            EGL14.eglDestroySurface(display, surface)
+        }
+        return size
     }
 
     /** 后台线程执行耗时 IO，完成后切回主线程返回结果。 */

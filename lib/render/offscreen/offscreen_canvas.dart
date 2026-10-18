@@ -2,9 +2,11 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../share/gallery_store.dart' show kGalleryChannel;
 import '../layout/math_metrics.dart';
 import '../raster/downsample.dart';
 import '../raster/raw_capture.dart';
@@ -70,6 +72,31 @@ class OffscreenCanvas {
   /// 每次捕获得到的 `ui.Image`；仅供测试断言「恰好释放一次」。
   @visibleForTesting
   final void Function(ui.Image image)? debugOnImage;
+
+  /// 纹理上限的进程内查询缓存；只存成功的真值，null = 尚未查到（测试可直接改写）。
+  @visibleForTesting
+  static int? maxTextureSizeCache;
+
+  /// 查询引擎光栅化的最大纹理边长（`GL_MAX_TEXTURE_SIZE`，点）。
+  ///
+  /// 真值由原生 EGL pbuffer 查询（`MainActivity.queryMaxTextureSize`），成功一次
+  /// 进程内缓存；通道不通（测试环境）或平台查询失败时返回 null，调用方用
+  /// [kFallbackMaxTextureSize] 兜底。**失败不缓存**——下次出图还会再试。
+  static Future<int?> queryMaxTextureSize({MethodChannel? channel}) async {
+    final int? cached = maxTextureSizeCache;
+    if (cached != null) return cached;
+    try {
+      final int size =
+          await (channel ?? kGalleryChannel).invokeMethod<int>('maxTextureSize') ??
+              0;
+      if (size > 0) maxTextureSizeCache = size;
+      return maxTextureSizeCache;
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
 
   /// 把 [child] 渲染成 [widthDots] 点宽的位图并取回像素。
   ///
@@ -161,8 +188,21 @@ class OffscreenCanvas {
           '内容高度 $heightDots 点超过上限 $kMaxOutputHeightDots 点，请拆分题目',
         );
       }
-      final int factor =
-          supersampleFactor(widthDots: widthDots, heightDots: heightDots);
+      // 引擎把离屏画面交给 GPU 的 toImage，物理边长超过纹理上限会**静默等比缩小**
+      // （实测 1152→908，正是这个断言曾炸的根因）。所以先查真值、按上限收紧档位；
+      // 1× 都放不下时在光栅化前给出明确报错，而不是等引擎偷偷缩完再炸断言。
+      final int? maxTex = await queryMaxTextureSize();
+      final int texLimit = maxTex ?? kFallbackMaxTextureSize;
+      if (heightDots > texLimit) {
+        throw OffscreenRenderException(
+          '内容高度 $heightDots 点超过本机可渲染上限 $texLimit 点，请拆分题目',
+        );
+      }
+      final int factor = supersampleFactor(
+        widthDots: widthDots,
+        heightDots: heightDots,
+        maxTextureSize: maxTex,
+      );
       onStage?.call(0.6, factor > 1 ? '光栅化（$factor× 超采样）' : '光栅化');
 
       // 超采样只改 pixelRatio：`ViewConfiguration` 一个字都不动（计划 §5.4a）。
