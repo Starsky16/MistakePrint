@@ -396,7 +396,7 @@ void main() {
         ).value,
         'paperang-p1',
       );
-      expect(find.text('作业帮喵喵机 P1'), findsOneWidget);
+      expect(find.text('喵喵机 P1'), findsOneWidget);
     });
 
     testWidgets('选喵喵机 P2 会切换到对应预设并落库', (WidgetTester tester) async {
