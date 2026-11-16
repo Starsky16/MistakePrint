@@ -105,7 +105,7 @@ class _ModelTile extends StatelessWidget {
 
   /// 下拉显示名（短名；档案 name 供开发者页与持久化用）。
   static const Map<String, String> _labels = <String, String>{
-    'paperang-p1': '作业帮喵喵机 P1',
+    'paperang-p1': '喵喵机 P1',
     'paperang-p2': '喵喵机 P2',
     'paperang-p2s': '喵喵机 P2S',
   };

@@ -153,7 +153,7 @@ class PaperProfile {
 /// 最小可读字号 14、正文 18。
 const PaperProfile kPaperangP1Default = PaperProfile(
   id: 'paperang-p1',
-  name: '作业帮喵喵机 P1（出厂默认）',
+  name: '喵喵机 P1（出厂默认）',
   dpi: 203,
   paperWidthMm: 57,
   printableDotsWidth: 384,

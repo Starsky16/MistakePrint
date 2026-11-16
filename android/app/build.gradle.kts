@@ -25,6 +25,10 @@ fun keystoreSecret(literalKey: String, pathKey: String): String? {
     return file.readText().trim()
 }
 
+// dev 预发布包（CI 设 DEV_BUILD=true）使用 .dev 包名后缀与 -dev 版本后缀，
+// 作为独立应用与正式版并存安装；正式发版不设该环境变量，包名保持不变。
+val devBuild = System.getenv("DEV_BUILD") == "true"
+
 val releaseStorePath = keystoreProperties.getProperty("storeFile")
 val hasReleaseKeystore = releaseStorePath != null && File(releaseStorePath).exists()
 
@@ -65,6 +69,10 @@ android {
 
     buildTypes {
         release {
+            if (devBuild) {
+                applicationIdSuffix = ".dev"
+                versionNameSuffix = "-dev"
+            }
             // 拿不到 keystore（例如干净 clone 且没建 key.properties）时回落 debug 签名，
             // 保证 `flutter run --release` 仍可用；正式发版必须让 hasReleaseKeystore 为真。
             signingConfig = if (hasReleaseKeystore) {
